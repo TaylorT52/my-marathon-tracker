@@ -103,7 +103,9 @@ service cloud.firestore {
             "longitude",
             "distanceMiles",
             "elapsedSeconds",
+            "paceSeconds",
             "isTracking",
+            "isFinished",
             "recordedAt"
           ])
           && request.resource.data.latitude is number
@@ -118,7 +120,12 @@ service cloud.firestore {
           && request.resource.data.elapsedSeconds is number
           && request.resource.data.elapsedSeconds >= 0
           && request.resource.data.elapsedSeconds <= 604800
+          && request.resource.data.paceSeconds is number
+          && request.resource.data.paceSeconds >= 0
+          && request.resource.data.paceSeconds <= 86400
           && request.resource.data.isTracking is bool
+          && request.resource.data.isFinished is bool
+          && (!request.resource.data.isFinished || !request.resource.data.isTracking)
           && request.resource.data.recordedAt == request.time;
         allow update: if isOwner(raceId)
           && stateId == "latest"
@@ -127,7 +134,9 @@ service cloud.firestore {
             "longitude",
             "distanceMiles",
             "elapsedSeconds",
+            "paceSeconds",
             "isTracking",
+            "isFinished",
             "recordedAt"
           ])
           && request.resource.data.latitude is number
@@ -142,7 +151,17 @@ service cloud.firestore {
           && request.resource.data.elapsedSeconds is number
           && request.resource.data.elapsedSeconds >= resource.data.elapsedSeconds
           && request.resource.data.elapsedSeconds <= 604800
+          && request.resource.data.paceSeconds is number
+          && request.resource.data.paceSeconds >= 0
+          && request.resource.data.paceSeconds <= 86400
           && request.resource.data.isTracking is bool
+          && request.resource.data.isFinished is bool
+          && (!request.resource.data.isFinished || !request.resource.data.isTracking)
+          && (
+            !resource.data.keys().hasAny(["isFinished"])
+            || resource.data.isFinished == false
+            || request.resource.data.isFinished == true
+          )
           && request.resource.data.recordedAt == request.time
           && request.resource.data.recordedAt > resource.data.recordedAt;
         allow delete: if isOwner(raceId);

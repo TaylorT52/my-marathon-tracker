@@ -117,7 +117,9 @@ describe("RunAlong spectator access", () => {
       longitude: -122.4429,
       distanceMiles: 1.25,
       elapsedSeconds: 720,
+      paceSeconds: 575,
       isTracking: true,
+      isFinished: false,
       recordedAt: serverTimestamp(),
     }));
 

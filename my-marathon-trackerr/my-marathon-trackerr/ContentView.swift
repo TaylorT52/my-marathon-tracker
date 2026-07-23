@@ -25,6 +25,12 @@ struct RaceUpdate: Identifiable, Equatable {
     }
 }
 
+struct PaceSegment: Equatable {
+    let distanceMeters: Double
+    let durationSeconds: TimeInterval
+    let endedAt: Date
+}
+
 enum RaceDistancePreset: String, CaseIterable, Identifiable {
     case fiveK
     case tenK
@@ -65,21 +71,44 @@ enum RaceDistancePreset: String, CaseIterable, Identifiable {
 }
 
 enum RaceMath {
+    private static let metersPerMile = 1609.344
+
     static func pace(seconds: TimeInterval, miles: Double) -> TimeInterval {
         guard miles > 0 else { return 0 }
         return seconds / miles
+    }
+
+    static func rollingPace(
+        segments: [PaceSegment],
+        now: Date,
+        windowSeconds: TimeInterval = 60
+    ) -> TimeInterval {
+        let cutoff = now.addingTimeInterval(-windowSeconds)
+        let recent = segments.filter {
+            $0.endedAt >= cutoff
+                && $0.distanceMeters > 0
+                && $0.durationSeconds > 0
+        }
+        let meters = recent.reduce(0) { $0 + $1.distanceMeters }
+        let seconds = recent.reduce(0) { $0 + $1.durationSeconds }
+        guard meters >= 20, seconds >= 5 else { return 0 }
+        return seconds / (meters / metersPerMile)
     }
 
     static func estimatedFinish(
         start: Date,
         elapsedSeconds: TimeInterval,
         distanceMiles: Double,
-        targetDistanceMiles: Double
+        targetDistanceMiles: Double,
+        currentPaceSeconds: TimeInterval? = nil
     ) -> Date? {
         guard distanceMiles > 0, targetDistanceMiles > 0 else { return nil }
-        return start.addingTimeInterval(
-            pace(seconds: elapsedSeconds, miles: distanceMiles) * targetDistanceMiles
-        )
+        let averagePace = pace(seconds: elapsedSeconds, miles: distanceMiles)
+        let forecastPace = currentPaceSeconds.flatMap {
+            $0 > 0 && $0.isFinite ? $0 : nil
+        } ?? averagePace
+        let remainingMiles = max(0, targetDistanceMiles - distanceMiles)
+        return start.addingTimeInterval(elapsedSeconds + forecastPace * remainingMiles)
     }
 
     static func paceText(_ secondsPerMile: TimeInterval) -> String {
@@ -110,6 +139,8 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
     ]
     @Published var locationStatus = "Location is off"
     @Published private(set) var hasLiveLocation = false
+    @Published private(set) var isFinished = false
+    @Published private(set) var rollingPaceSeconds: TimeInterval = 0
 
     private(set) var connectedRaceId: String?
     private(set) var isConnectedRace = false
@@ -138,6 +169,7 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
     private var updatesListener: ListenerRegistration?
     private var publishTimer: Timer?
     private var lastPublishedAt: Date?
+    private var paceSegments: [PaceSegment] = []
 
     override init() {
         super.init()
@@ -180,7 +212,10 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
     }
 
     var paceSeconds: TimeInterval {
-        RaceMath.pace(seconds: elapsedSeconds, miles: distanceMiles)
+        if isConnectedRace || hasStartedRealRace {
+            return rollingPaceSeconds
+        }
+        return RaceMath.pace(seconds: elapsedSeconds, miles: distanceMiles)
     }
 
     var estimatedFinish: Date {
@@ -188,16 +223,21 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
             start: Date().addingTimeInterval(-elapsedSeconds),
             elapsedSeconds: elapsedSeconds,
             distanceMiles: distanceMiles,
-            targetDistanceMiles: targetDistanceMiles
+            targetDistanceMiles: targetDistanceMiles,
+            currentPaceSeconds: rollingPaceSeconds
         ) ?? Calendar.current.date(byAdding: .hour, value: 4, to: Date())!
     }
 
     var estimatedFinishText: String {
+        if (isConnectedRace || hasStartedRealRace), rollingPaceSeconds <= 0 {
+            return "—"
+        }
         guard let estimate = RaceMath.estimatedFinish(
             start: Date().addingTimeInterval(-elapsedSeconds),
             elapsedSeconds: elapsedSeconds,
             distanceMiles: distanceMiles,
-            targetDistanceMiles: targetDistanceMiles
+            targetDistanceMiles: targetDistanceMiles,
+            currentPaceSeconds: rollingPaceSeconds
         ) else {
             return "—"
         }
@@ -231,13 +271,19 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
     }
 
     func toggleTracking() {
-        guard !isConnectedRace || isOwner else { return }
+        guard (!isConnectedRace || isOwner), !isFinished else { return }
         if isTracking {
+            if let trackingStart {
+                elapsedSeconds = elapsedAtStart + Date().timeIntervalSince(trackingStart)
+            }
             locationManager.stopUpdatingLocation()
             publishTimer?.invalidate()
             publishTimer = nil
             wantsTracking = false
             isTracking = false
+            trackingStart = nil
+            elapsedAtStart = elapsedSeconds
+            previousLocation = nil
             locationStatus = "Tracking paused"
             Task {
                 await publishCurrentState(force: true)
@@ -255,6 +301,28 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
             beginTracking()
         default:
             locationStatus = "Allow location access in Settings"
+        }
+    }
+
+    func finishRace() {
+        guard (!isConnectedRace || isOwner), !isFinished else { return }
+        if let trackingStart {
+            elapsedSeconds = elapsedAtStart + Date().timeIntervalSince(trackingStart)
+        }
+        locationManager.stopUpdatingLocation()
+        publishTimer?.invalidate()
+        publishTimer = nil
+        wantsTracking = false
+        isTracking = false
+        isFinished = true
+        trackingStart = nil
+        elapsedAtStart = elapsedSeconds
+        previousLocation = nil
+        locationStatus = "Race finished"
+
+        Task {
+            await publishCurrentState(force: true)
+            await updateRaceStatus("ended")
         }
     }
 
@@ -316,9 +384,24 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
 
         if let previousLocation, latest.timestamp.timeIntervalSince(previousLocation.timestamp) < 90 {
             let meters = latest.distance(from: previousLocation)
-            if meters > 2, meters < 500 {
+            let duration = latest.timestamp.timeIntervalSince(previousLocation.timestamp)
+            let speed = duration > 0 ? meters / duration : .infinity
+            if meters > 2, meters < 500, speed <= 15 {
                 distanceMiles += meters / 1609.344
+                paceSegments.append(
+                    PaceSegment(
+                        distanceMeters: meters,
+                        durationSeconds: duration,
+                        endedAt: latest.timestamp
+                    )
+                )
             }
+            let cutoff = latest.timestamp.addingTimeInterval(-60)
+            paceSegments.removeAll { $0.endedAt < cutoff }
+            rollingPaceSeconds = RaceMath.rollingPace(
+                segments: paceSegments,
+                now: latest.timestamp
+            )
         }
         previousLocation = latest
         runnerCoordinate = latest.coordinate
@@ -335,6 +418,8 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
             distanceMiles = 0
             elapsedSeconds = 0
             updates = []
+            paceSegments = []
+            rollingPaceSeconds = 0
             hasStartedRealRace = true
         }
         trackingStart = Date()
@@ -390,13 +475,22 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
                     )
                     self.distanceMiles = max(0, distance)
                     self.elapsedSeconds = max(0, elapsed)
+                    self.rollingPaceSeconds = max(
+                        0,
+                        (data["paceSeconds"] as? NSNumber)?.doubleValue ?? 0
+                    )
                     self.lastUpdated = (data["recordedAt"] as? Timestamp)?.dateValue() ?? Date()
                     self.isTracking = data["isTracking"] as? Bool ?? false
+                    self.isFinished = data["isFinished"] as? Bool ?? false
                     self.hasLiveLocation = true
                     if !self.isOwner {
-                        self.locationStatus = self.isTracking
-                            ? "Receiving live GPS"
-                            : "The runner’s tracking is paused"
+                        if self.isFinished {
+                            self.locationStatus = "Race finished"
+                        } else {
+                            self.locationStatus = self.isTracking
+                                ? "Receiving live GPS"
+                                : "The runner’s tracking is paused"
+                        }
                     }
                 }
             }
@@ -447,10 +541,16 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
                     "longitude": runnerCoordinate.longitude,
                     "distanceMiles": distanceMiles,
                     "elapsedSeconds": elapsedSeconds,
+                    "paceSeconds": rollingPaceSeconds,
                     "isTracking": isTracking,
+                    "isFinished": isFinished,
                     "recordedAt": FieldValue.serverTimestamp()
                 ])
-            locationStatus = isTracking ? "Live GPS synced" : "Tracking paused"
+            if isFinished {
+                locationStatus = "Race finished"
+            } else {
+                locationStatus = isTracking ? "Live GPS synced" : "Tracking paused"
+            }
         } catch {
             locationStatus = "GPS sync failed: \(error.localizedDescription)"
         }
@@ -497,6 +597,7 @@ struct ContentView: View {
     )
     @State private var showComposer = false
     @State private var showSettings = false
+    @State private var showFinishConfirmation = false
     @State private var hasCenteredOnLiveLocation = false
 
     init() {
@@ -553,6 +654,14 @@ struct ContentView: View {
                 RaceSettings(race: race)
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
+            }
+            .alert("Finish this race?", isPresented: $showFinishConfirmation) {
+                Button("Keep tracking", role: .cancel) {}
+                Button("Finish race", role: .destructive) {
+                    race.finishRace()
+                }
+            } message: {
+                Text("Live location tracking will stop and everyone watching will see the final result.")
             }
         }
         .tint(AppTheme.orange)
@@ -635,12 +744,16 @@ struct ContentView: View {
         .overlay(alignment: .topLeading) {
             HStack(spacing: 7) {
                 Circle()
-                    .fill(race.isTracking ? AppTheme.mint : AppTheme.orange)
+                    .fill(race.isFinished ? AppTheme.ink : (race.isTracking ? AppTheme.mint : AppTheme.orange))
                     .frame(width: 8, height: 8)
                 Text(
-                    race.isTracking
-                        ? "LIVE GPS"
-                        : (race.isConnectedRace ? "WAITING FOR GPS" : "DEMO LIVE")
+                    race.isFinished
+                        ? "FINISHED"
+                        : (
+                            race.isTracking
+                                ? "LIVE GPS"
+                                : (race.isConnectedRace ? "WAITING FOR GPS" : "DEMO LIVE")
+                        )
                 )
                     .font(.caption2.weight(.black))
                     .tracking(0.8)
@@ -794,16 +907,38 @@ struct ContentView: View {
     private var raceDayActions: some View {
         VStack(spacing: 13) {
             if race.isRunnerMode {
-                Button { race.toggleTracking() } label: {
-                    Label(
-                        race.isTracking ? "Pause live tracking" : "Start live tracking",
-                        systemImage: race.isTracking ? "pause.fill" : "location.fill"
-                    )
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 15)
-                    .background(race.isTracking ? AppTheme.ink : AppTheme.orange, in: RoundedRectangle(cornerRadius: 16))
-                    .foregroundStyle(.white)
+                if race.isFinished {
+                    Label("Race finished", systemImage: "checkmark.circle.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 15)
+                        .background(AppTheme.mint, in: RoundedRectangle(cornerRadius: 16))
+                        .foregroundStyle(.white)
+                } else {
+                    Button { race.toggleTracking() } label: {
+                        Label(
+                            race.isTracking ? "Pause live tracking" : "Start live tracking",
+                            systemImage: race.isTracking ? "pause.fill" : "location.fill"
+                        )
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 15)
+                        .background(race.isTracking ? AppTheme.ink : AppTheme.orange, in: RoundedRectangle(cornerRadius: 16))
+                        .foregroundStyle(.white)
+                    }
+
+                    if race.hasLiveLocation {
+                        Button(role: .destructive) {
+                            showFinishConfirmation = true
+                        } label: {
+                            Label("Finish race", systemImage: "flag.checkered")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.red)
+                    }
                 }
                 Text(race.locationStatus)
                     .font(.caption)
