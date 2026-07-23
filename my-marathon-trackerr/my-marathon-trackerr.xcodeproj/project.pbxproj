@@ -16,8 +16,6 @@
 		FC07CCD13012B4D600148555 /* my_marathon_trackerrUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC07CCD03012B4D600148555 /* my_marathon_trackerrUITestsLaunchTests.swift */; };
 		FC07CCE03012BE0000148555 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = FC07CCE43012BE0000148555 /* FirebaseAuth */; };
 		FC07CCE13012BE0000148555 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = FC07CCE53012BE0000148555 /* FirebaseFirestore */; };
-		FC07CCE23012BE0000148555 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = FC07CCE63012BE0000148555 /* FirebaseFunctions */; };
-		FC07CCE33012BE0000148555 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = FC07CCE73012BE0000148555 /* FirebaseMessaging */; };
 		FC94B6123012C0F100FCD3D9 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FC94B6113012C0F100FCD3D9 /* GoogleService-Info.plist */; };
 		FC07CCE83012C00000148555 /* FirebaseRaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC07CCEA3012C00000148555 /* FirebaseRaceStore.swift */; };
 		FC07CCE93012C00000148555 /* RacePortalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC07CCEB3012C00000148555 /* RacePortalView.swift */; };
@@ -63,8 +61,6 @@
 			files = (
 				FC07CCE03012BE0000148555 /* FirebaseAuth in Frameworks */,
 				FC07CCE13012BE0000148555 /* FirebaseFirestore in Frameworks */,
-				FC07CCE23012BE0000148555 /* FirebaseFunctions in Frameworks */,
-				FC07CCE33012BE0000148555 /* FirebaseMessaging in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -163,8 +159,6 @@
 			packageProductDependencies = (
 				FC07CCE43012BE0000148555 /* FirebaseAuth */,
 				FC07CCE53012BE0000148555 /* FirebaseFirestore */,
-				FC07CCE63012BE0000148555 /* FirebaseFunctions */,
-				FC07CCE73012BE0000148555 /* FirebaseMessaging */,
 			);
 			productName = "my-marathon-trackerr";
 			productReference = FC07CCB03012B4D400148555 /* my-marathon-trackerr.app */;
@@ -627,16 +621,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FC07CCDF3012BDB600148555 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFirestore;
-		};
-		FC07CCE63012BE0000148555 /* FirebaseFunctions */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FC07CCDF3012BDB600148555 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseFunctions;
-		};
-		FC07CCE73012BE0000148555 /* FirebaseMessaging */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FC07CCDF3012BDB600148555 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseMessaging;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

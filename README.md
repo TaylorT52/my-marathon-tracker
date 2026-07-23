@@ -53,27 +53,31 @@ Suggested backend records:
 ## Backend testing status
 
 Firebase Authentication, secure race creation, anonymous passcode joining,
-Cloud Functions, and Firestore membership rules are scaffolded in the
-repository. Live GPS state and update syncing are the next backend phase.
+and Firestore membership rules are scaffolded in the repository. This version
+works on Firebase's free Spark plan and does not require Cloud Functions. Live
+GPS state and update syncing are the next backend phase.
 
 Before using race creation:
 
-1. In Firebase Authentication, enable both **Email/Password** and **Anonymous**.
-2. From the repository root, authenticate and deploy:
+1. Download your Apple app's `GoogleService-Info.plist` from Firebase Console
+   and place it in `my-marathon-trackerr/`. This local file is intentionally
+   ignored by Git; `GoogleService-Info.example.plist` documents the expected
+   location and shape.
+2. In Firebase Authentication, enable both **Email/Password** and **Anonymous**.
+3. From the repository root, authenticate and deploy:
 
    ```sh
    npx firebase-tools login
    npx firebase-tools use my-marathon-trackerr
-   npx firebase-tools deploy --only firestore:rules,functions
+   npx firebase-tools deploy --only firestore:rules
    ```
 
-3. Run the app. Create a permanent email/password account under **Create a
-   race**. The backend creates the race and an 8-character private passcode.
-4. On another simulator or device, choose **Join a race**. The app creates an
-   anonymous Firebase user and exchanges the passcode for race membership.
-
-Firebase may require the project to use a billing-enabled plan before Cloud
-Functions can be deployed.
+4. Run the app. Create a permanent email/password account under **Create a
+   race**, then choose whether it is public or private. Private races receive an
+   8-character passcode.
+5. On another simulator or device, choose **Join a race**. Public races appear
+   in the discoverable list; private races require their passcode. Either path
+   creates an anonymous Firebase spectator.
 
 You can test the current on-device tracking:
 

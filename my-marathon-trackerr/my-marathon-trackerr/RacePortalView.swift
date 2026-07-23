@@ -32,6 +32,7 @@ struct RacePortalView: View {
                             }
                             .padding(20)
                         }
+                        .scrollDismissesKeyboard(.interactively)
                     }
                 }
             }
@@ -82,6 +83,7 @@ private struct CreatorFlow: View {
     @State private var distancePreset = RaceDistancePreset.fiveK
     @State private var customDistance = 3.1
     @State private var isPrivateRace = true
+    @FocusState private var focusedField: CreatorField?
 
     var body: some View {
         VStack(spacing: 18) {
@@ -106,12 +108,15 @@ private struct CreatorFlow: View {
                 .keyboardType(.emailAddress)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
+                .focused($focusedField, equals: .email)
                 .fieldStyle()
             SecureField("Password", text: $password)
                 .textContentType(.password)
+                .focused($focusedField, equals: .password)
                 .fieldStyle()
 
             Button {
+                focusedField = nil
                 Task { await store.signIn(email: email, password: password) }
             } label: {
                 actionLabel("Sign in", symbol: "person.crop.circle.fill")
@@ -119,6 +124,7 @@ private struct CreatorFlow: View {
             .disabled(store.isWorking || email.isEmpty || password.isEmpty)
 
             Button {
+                focusedField = nil
                 Task { await store.createAccount(email: email, password: password) }
             } label: {
                 Text("Create a new account")
@@ -129,6 +135,7 @@ private struct CreatorFlow: View {
             .disabled(store.isWorking || email.isEmpty || password.count < 6)
 
             Button("Forgot password?") {
+                focusedField = nil
                 Task { await store.sendPasswordReset(email: email) }
             }
             .font(.caption.weight(.semibold))
@@ -159,8 +166,10 @@ private struct CreatorFlow: View {
 
             TextField("Runner name", text: $runnerName)
                 .textContentType(.name)
+                .focused($focusedField, equals: .runnerName)
                 .fieldStyle()
             TextField("Race name", text: $raceName)
+                .focused($focusedField, equals: .raceName)
                 .fieldStyle()
 
             Picker("Distance", selection: $distancePreset) {
@@ -178,22 +187,32 @@ private struct CreatorFlow: View {
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                         .frame(width: 90)
+                        .focused($focusedField, equals: .distance)
                     Text("mi").foregroundStyle(.secondary)
                 }
                 .fieldStyle()
             }
 
-            Toggle(isOn: $isPrivateRace) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Private race")
-                        .fontWeight(.semibold)
-                    Text("Viewers need an 8-character passcode")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Who can watch?")
+                    .font(.subheadline.weight(.semibold))
+                Picker("Race visibility", selection: $isPrivateRace) {
+                    Text("Public").tag(false)
+                    Text("Private").tag(true)
                 }
+                .pickerStyle(.segmented)
+                Label(
+                    isPrivateRace
+                        ? "Only people with your 8-character passcode can find and watch this race."
+                        : "Anyone using RunAlong can find and watch this race.",
+                    systemImage: isPrivateRace ? "lock.fill" : "globe.americas.fill"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
 
             Button {
+                focusedField = nil
                 Task {
                     await store.createRace(
                         raceName: raceName,
@@ -219,14 +238,112 @@ private struct CreatorFlow: View {
     }
 }
 
+private enum CreatorField: Hashable {
+    case email
+    case password
+    case runnerName
+    case raceName
+    case distance
+}
+
 private struct JoinFlow: View {
     @ObservedObject var store: FirebaseRaceStore
+    @State private var joinMethod = JoinMethod.publicRaces
     @State private var passcode = ""
+    @FocusState private var passcodeIsFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Join privately")
+            Text("Watch a race")
                 .font(.title2.weight(.bold))
+
+            Picker("How to join", selection: $joinMethod) {
+                ForEach(JoinMethod.allCases) { method in
+                    Text(method.title).tag(method)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            if joinMethod == .publicRaces {
+                publicRaceList
+            } else {
+                privatePasscodeForm
+            }
+
+            if store.isWorking || store.isLoadingPublicRaces {
+                ProgressView().frame(maxWidth: .infinity)
+            }
+        }
+        .portalCard()
+        .task {
+            if store.publicRaces.isEmpty {
+                await store.loadPublicRaces()
+            }
+        }
+    }
+
+    private var publicRaceList: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Public races")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    Task { await store.loadPublicRaces() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .accessibilityLabel("Refresh public races")
+                .disabled(store.isLoadingPublicRaces)
+            }
+
+            if store.publicRaces.isEmpty && !store.isLoadingPublicRaces {
+                ContentUnavailableView(
+                    "No public races yet",
+                    systemImage: "flag.checkered",
+                    description: Text("Create the first one, or join a private race with a passcode.")
+                )
+            } else {
+                ForEach(store.publicRaces) { race in
+                    VStack(alignment: .leading, spacing: 9) {
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(race.raceName)
+                                    .font(.headline)
+                                Text("\(race.runnerName) · \(race.targetDistanceMiles.formatted(.number.precision(.fractionLength(0...2)))) miles")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(race.status == "live" ? "LIVE" : "UPCOMING")
+                                .font(.caption2.weight(.black))
+                                .foregroundStyle(race.status == "live" ? .red : .secondary)
+                        }
+
+                        Button {
+                            passcodeIsFocused = false
+                            Task { await store.joinPublicRace(race) }
+                        } label: {
+                            Label("Watch", systemImage: "eye.fill")
+                                .font(.subheadline.weight(.bold))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color(red: 0.08, green: 0.10, blue: 0.16))
+                        .disabled(store.isWorking)
+                    }
+                    .padding(14)
+                    .background(
+                        Color(red: 0.95, green: 0.95, blue: 0.93),
+                        in: RoundedRectangle(cornerRadius: 15)
+                    )
+                }
+            }
+        }
+    }
+
+    private var privatePasscodeForm: some View {
+        VStack(alignment: .leading, spacing: 14) {
             Text("Enter the passcode the runner sent you. No account setup is needed.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -234,6 +351,7 @@ private struct JoinFlow: View {
                 .font(.system(.title3, design: .monospaced, weight: .bold))
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
+                .focused($passcodeIsFocused)
                 .onChange(of: passcode) { _, value in
                     passcode = String(
                         value.uppercased().filter { $0.isLetter || $0.isNumber }.prefix(8)
@@ -242,18 +360,22 @@ private struct JoinFlow: View {
                 .fieldStyle()
 
             Button {
+                passcodeIsFocused = false
                 Task { await store.joinRace(passcode: passcode) }
             } label: {
-                actionLabel("Watch this race", symbol: "eye.fill")
+                actionLabel("Watch private race", symbol: "lock.open.fill")
             }
             .disabled(store.isWorking || passcode.count != 8)
-
-            if store.isWorking {
-                ProgressView().frame(maxWidth: .infinity)
-            }
         }
-        .portalCard()
     }
+}
+
+private enum JoinMethod: String, CaseIterable, Identifiable {
+    case publicRaces
+    case passcode
+
+    var id: Self { self }
+    var title: String { self == .publicRaces ? "Public" : "Passcode" }
 }
 
 private struct ConnectedRaceView: View {
@@ -302,6 +424,24 @@ private struct ConnectedRaceView: View {
 
                         ShareLink(item: "Follow \(race.runnerName)’s race in RunAlong with passcode \(passcode)") {
                             Label("Share invitation", systemImage: "square.and.arrow.up")
+                        }
+                        .buttonStyle(.bordered)
+                    } else if race.isOwner && !race.isPrivate {
+                        VStack(spacing: 8) {
+                            Label("PUBLIC RACE", systemImage: "globe.americas.fill")
+                                .font(.caption.weight(.bold))
+                                .tracking(1)
+                                .foregroundStyle(.secondary)
+                            Text("Anyone can find this race in the Public list.")
+                                .font(.subheadline)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(22)
+                        .background(.white, in: RoundedRectangle(cornerRadius: 22))
+
+                        ShareLink(item: "Watch \(race.runnerName) in “\(race.raceName)” under Public races in RunAlong.") {
+                            Label("Share race", systemImage: "square.and.arrow.up")
                         }
                         .buttonStyle(.bordered)
                     }

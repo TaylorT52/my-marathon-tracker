@@ -6,6 +6,15 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function permanentUser() {
+      return signedIn()
+        && request.auth.token.firebase.sign_in_provider != "anonymous";
+    }
+
+    function raceAfter(raceId) {
+      return getAfter(/databases/$(database)/documents/races/$(raceId));
+    }
+
     function isMember(raceId) {
       return signedIn()
         && exists(/databases/$(database)/documents/races/$(raceId)/members/$(request.auth.uid));
@@ -16,14 +25,73 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/races/$(raceId)).data.ownerId == request.auth.uid;
     }
 
+    function validRaceCreate() {
+      return permanentUser()
+        && request.resource.data.keys().hasOnly([
+          "ownerId",
+          "raceName",
+          "runnerName",
+          "targetDistanceMiles",
+          "isPrivate",
+          "status",
+          "createdAt"
+        ])
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.raceName is string
+        && request.resource.data.raceName.size() > 0
+        && request.resource.data.raceName.size() <= 80
+        && request.resource.data.runnerName is string
+        && request.resource.data.runnerName.size() > 0
+        && request.resource.data.runnerName.size() <= 60
+        && request.resource.data.targetDistanceMiles is number
+        && request.resource.data.targetDistanceMiles >= 0.1
+        && request.resource.data.targetDistanceMiles <= 500
+        && request.resource.data.isPrivate is bool
+        && request.resource.data.status == "setup"
+        && request.resource.data.createdAt == request.time;
+    }
+
     match /races/{raceId} {
-      allow read: if isMember(raceId);
-      allow create: if false;
-      allow update, delete: if isOwner(raceId);
+      allow get: if resource.data.isPrivate == false
+        || isMember(raceId)
+        || (signedIn() && resource.data.ownerId == request.auth.uid);
+      allow list: if resource.data.isPrivate == false;
+      allow create: if validRaceCreate();
+      allow update: if isOwner(raceId)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.isPrivate == resource.data.isPrivate;
+      allow delete: if isOwner(raceId);
 
       match /members/{userId} {
-        allow read: if isMember(raceId);
-        allow write: if false;
+        allow read: if isMember(raceId) || isOwner(raceId);
+        allow create: if signedIn()
+          && userId == request.auth.uid
+          && request.resource.data.joinedAt == request.time
+          && (
+            (
+              request.resource.data.keys().hasOnly(["role", "joinedAt"])
+              && request.resource.data.role == "runner"
+              && raceAfter(raceId).data.ownerId == request.auth.uid
+            )
+            ||
+            (
+              request.resource.data.keys().hasOnly(["role", "joinedAt"])
+              && request.resource.data.role == "spectator"
+              && raceAfter(raceId).data.isPrivate == false
+              && raceAfter(raceId).data.status != "ended"
+            )
+            ||
+            (
+              request.resource.data.keys().hasOnly(["role", "inviteHash", "joinedAt"])
+              && request.resource.data.role == "spectator"
+              && request.resource.data.inviteHash is string
+              && request.resource.data.inviteHash.size() == 64
+              && get(/databases/$(database)/documents/raceInvites/$(request.resource.data.inviteHash)).data.raceId == raceId
+              && get(/databases/$(database)/documents/raceInvites/$(request.resource.data.inviteHash)).data.expiresAt > request.time
+              && raceAfter(raceId).data.status != "ended"
+            )
+          );
+        allow update, delete: if false;
       }
 
       match /state/{stateId} {
@@ -47,7 +115,26 @@ service cloud.firestore {
     }
 
     match /raceInvites/{inviteHash} {
-      allow read, write: if false;
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if permanentUser()
+        && inviteHash.size() == 64
+        && request.resource.data.keys().hasOnly([
+          "raceId",
+          "ownerId",
+          "expiresAt",
+          "createdAt"
+        ])
+        && request.resource.data.ownerId == request.auth.uid
+        && raceAfter(request.resource.data.raceId).data.ownerId == request.auth.uid
+        && raceAfter(request.resource.data.raceId).data.isPrivate == true
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt <= request.time + duration.value(72, "h");
+      allow update: if false;
+      allow delete: if signedIn()
+        && resource.data.ownerId == request.auth.uid;
     }
 
     match /{document=**} {

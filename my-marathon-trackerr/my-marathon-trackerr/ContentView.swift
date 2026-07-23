@@ -145,7 +145,9 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
     }
 
     var targetDistanceMiles: Double {
-        max(distancePreset.miles ?? customDistanceMiles, 0.1)
+        let distance = distancePreset.miles ?? customDistanceMiles
+        guard distance.isFinite, distance > 0 else { return 0.1 }
+        return distance
     }
 
     var targetDistanceText: String {
@@ -156,7 +158,8 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
     }
 
     var progress: Double {
-        min(distanceMiles / targetDistanceMiles, 1)
+        guard distanceMiles.isFinite else { return 0 }
+        return min(max(distanceMiles / targetDistanceMiles, 0), 1)
     }
 
     var completedCourse: [CLLocationCoordinate2D] {
