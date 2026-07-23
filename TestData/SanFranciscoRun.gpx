@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="RunAlong"
+     xmlns="http://www.topografix.com/GPX/1/1"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+  <trk>
+    <name>RunAlong Test Route</name>
+    <trkseg>
+      <trkpt lat="37.8078" lon="-122.4183"><time>2026-07-23T16:00:00Z</time></trkpt>
+      <trkpt lat="37.8061" lon="-122.4208"><time>2026-07-23T16:01:00Z</time></trkpt>
+      <trkpt lat="37.8039" lon="-122.4241"><time>2026-07-23T16:02:00Z</time></trkpt>
+      <trkpt lat="37.8010" lon="-122.4284"><time>2026-07-23T16:03:00Z</time></trkpt>
+      <trkpt lat="37.7987" lon="-122.4325"><time>2026-07-23T16:04:00Z</time></trkpt>
+      <trkpt lat="37.7961" lon="-122.4372"><time>2026-07-23T16:05:00Z</time></trkpt>
+      <trkpt lat="37.7922" lon="-122.4428"><time>2026-07-23T16:06:00Z</time></trkpt>
+      <trkpt lat="37.7881" lon="-122.4482"><time>2026-07-23T16:07:00Z</time></trkpt>
+      <trkpt lat="37.7837" lon="-122.4511"><time>2026-07-23T16:08:00Z</time></trkpt>
+      <trkpt lat="37.7787" lon="-122.4521"><time>2026-07-23T16:09:00Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

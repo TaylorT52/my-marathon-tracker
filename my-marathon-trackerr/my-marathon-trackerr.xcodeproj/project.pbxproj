@@ -1,0 +1,644 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		FC07CCB43012B4D400148555 /* my_marathon_trackerrApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC07CCB33012B4D400148555 /* my_marathon_trackerrApp.swift */; };
+		FC07CCB63012B4D400148555 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC07CCB53012B4D400148555 /* ContentView.swift */; };
+		FC07CCB83012B4D600148555 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FC07CCB73012B4D600148555 /* Assets.xcassets */; };
+		FC07CCBB3012B4D600148555 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FC07CCBA3012B4D600148555 /* Preview Assets.xcassets */; };
+		FC07CCC53012B4D600148555 /* my_marathon_trackerrTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC07CCC43012B4D600148555 /* my_marathon_trackerrTests.swift */; };
+		FC07CCCF3012B4D600148555 /* my_marathon_trackerrUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC07CCCE3012B4D600148555 /* my_marathon_trackerrUITests.swift */; };
+		FC07CCD13012B4D600148555 /* my_marathon_trackerrUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC07CCD03012B4D600148555 /* my_marathon_trackerrUITestsLaunchTests.swift */; };
+		FC07CCE03012BE0000148555 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = FC07CCE43012BE0000148555 /* FirebaseAuth */; };
+		FC07CCE13012BE0000148555 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = FC07CCE53012BE0000148555 /* FirebaseFirestore */; };
+		FC07CCE23012BE0000148555 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = FC07CCE63012BE0000148555 /* FirebaseFunctions */; };
+		FC07CCE33012BE0000148555 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = FC07CCE73012BE0000148555 /* FirebaseMessaging */; };
+		FC94B6123012C0F100FCD3D9 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FC94B6113012C0F100FCD3D9 /* GoogleService-Info.plist */; };
+		FC07CCE83012C00000148555 /* FirebaseRaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC07CCEA3012C00000148555 /* FirebaseRaceStore.swift */; };
+		FC07CCE93012C00000148555 /* RacePortalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC07CCEB3012C00000148555 /* RacePortalView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FC07CCC13012B4D600148555 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC07CCA83012B4D400148555 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FC07CCAF3012B4D400148555;
+			remoteInfo = "my-marathon-trackerr";
+		};
+		FC07CCCB3012B4D600148555 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC07CCA83012B4D400148555 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FC07CCAF3012B4D400148555;
+			remoteInfo = "my-marathon-trackerr";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		FC07CCB03012B4D400148555 /* my-marathon-trackerr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "my-marathon-trackerr.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		FC07CCB33012B4D400148555 /* my_marathon_trackerrApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = my_marathon_trackerrApp.swift; sourceTree = "<group>"; };
+		FC07CCB53012B4D400148555 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		FC07CCB73012B4D600148555 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		FC07CCBA3012B4D600148555 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		FC07CCC03012B4D600148555 /* my-marathon-trackerrTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "my-marathon-trackerrTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		FC07CCC43012B4D600148555 /* my_marathon_trackerrTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = my_marathon_trackerrTests.swift; sourceTree = "<group>"; };
+		FC07CCCA3012B4D600148555 /* my-marathon-trackerrUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "my-marathon-trackerrUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		FC07CCCE3012B4D600148555 /* my_marathon_trackerrUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = my_marathon_trackerrUITests.swift; sourceTree = "<group>"; };
+		FC07CCD03012B4D600148555 /* my_marathon_trackerrUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = my_marathon_trackerrUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		FC94B6113012C0F100FCD3D9 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		FC07CCEA3012C00000148555 /* FirebaseRaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirebaseRaceStore.swift; sourceTree = "<group>"; };
+		FC07CCEB3012C00000148555 /* RacePortalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RacePortalView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FC07CCAD3012B4D400148555 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FC07CCE03012BE0000148555 /* FirebaseAuth in Frameworks */,
+				FC07CCE13012BE0000148555 /* FirebaseFirestore in Frameworks */,
+				FC07CCE23012BE0000148555 /* FirebaseFunctions in Frameworks */,
+				FC07CCE33012BE0000148555 /* FirebaseMessaging in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC07CCBD3012B4D600148555 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC07CCC73012B4D600148555 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		FC07CCA73012B4D400148555 = {
+			isa = PBXGroup;
+			children = (
+				FC94B6113012C0F100FCD3D9 /* GoogleService-Info.plist */,
+				FC07CCB23012B4D400148555 /* my-marathon-trackerr */,
+				FC07CCC33012B4D600148555 /* my-marathon-trackerrTests */,
+				FC07CCCD3012B4D600148555 /* my-marathon-trackerrUITests */,
+				FC07CCB13012B4D400148555 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FC07CCB13012B4D400148555 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FC07CCB03012B4D400148555 /* my-marathon-trackerr.app */,
+				FC07CCC03012B4D600148555 /* my-marathon-trackerrTests.xctest */,
+				FC07CCCA3012B4D600148555 /* my-marathon-trackerrUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FC07CCB23012B4D400148555 /* my-marathon-trackerr */ = {
+			isa = PBXGroup;
+			children = (
+				FC07CCB33012B4D400148555 /* my_marathon_trackerrApp.swift */,
+				FC07CCB53012B4D400148555 /* ContentView.swift */,
+				FC07CCEA3012C00000148555 /* FirebaseRaceStore.swift */,
+				FC07CCEB3012C00000148555 /* RacePortalView.swift */,
+				FC07CCB73012B4D600148555 /* Assets.xcassets */,
+				FC07CCB93012B4D600148555 /* Preview Content */,
+			);
+			path = "my-marathon-trackerr";
+			sourceTree = "<group>";
+		};
+		FC07CCB93012B4D600148555 /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				FC07CCBA3012B4D600148555 /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		FC07CCC33012B4D600148555 /* my-marathon-trackerrTests */ = {
+			isa = PBXGroup;
+			children = (
+				FC07CCC43012B4D600148555 /* my_marathon_trackerrTests.swift */,
+			);
+			path = "my-marathon-trackerrTests";
+			sourceTree = "<group>";
+		};
+		FC07CCCD3012B4D600148555 /* my-marathon-trackerrUITests */ = {
+			isa = PBXGroup;
+			children = (
+				FC07CCCE3012B4D600148555 /* my_marathon_trackerrUITests.swift */,
+				FC07CCD03012B4D600148555 /* my_marathon_trackerrUITestsLaunchTests.swift */,
+			);
+			path = "my-marathon-trackerrUITests";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		FC07CCAF3012B4D400148555 /* my-marathon-trackerr */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FC07CCD43012B4D600148555 /* Build configuration list for PBXNativeTarget "my-marathon-trackerr" */;
+			buildPhases = (
+				FC07CCAC3012B4D400148555 /* Sources */,
+				FC07CCAD3012B4D400148555 /* Frameworks */,
+				FC07CCAE3012B4D400148555 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "my-marathon-trackerr";
+			packageProductDependencies = (
+				FC07CCE43012BE0000148555 /* FirebaseAuth */,
+				FC07CCE53012BE0000148555 /* FirebaseFirestore */,
+				FC07CCE63012BE0000148555 /* FirebaseFunctions */,
+				FC07CCE73012BE0000148555 /* FirebaseMessaging */,
+			);
+			productName = "my-marathon-trackerr";
+			productReference = FC07CCB03012B4D400148555 /* my-marathon-trackerr.app */;
+			productType = "com.apple.product-type.application";
+		};
+		FC07CCBF3012B4D600148555 /* my-marathon-trackerrTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FC07CCD73012B4D600148555 /* Build configuration list for PBXNativeTarget "my-marathon-trackerrTests" */;
+			buildPhases = (
+				FC07CCBC3012B4D600148555 /* Sources */,
+				FC07CCBD3012B4D600148555 /* Frameworks */,
+				FC07CCBE3012B4D600148555 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FC07CCC23012B4D600148555 /* PBXTargetDependency */,
+			);
+			name = "my-marathon-trackerrTests";
+			productName = "my-marathon-trackerrTests";
+			productReference = FC07CCC03012B4D600148555 /* my-marathon-trackerrTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		FC07CCC93012B4D600148555 /* my-marathon-trackerrUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FC07CCDA3012B4D600148555 /* Build configuration list for PBXNativeTarget "my-marathon-trackerrUITests" */;
+			buildPhases = (
+				FC07CCC63012B4D600148555 /* Sources */,
+				FC07CCC73012B4D600148555 /* Frameworks */,
+				FC07CCC83012B4D600148555 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FC07CCCC3012B4D600148555 /* PBXTargetDependency */,
+			);
+			name = "my-marathon-trackerrUITests";
+			productName = "my-marathon-trackerrUITests";
+			productReference = FC07CCCA3012B4D600148555 /* my-marathon-trackerrUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FC07CCA83012B4D400148555 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1540;
+				LastUpgradeCheck = 1540;
+				TargetAttributes = {
+					FC07CCAF3012B4D400148555 = {
+						CreatedOnToolsVersion = 15.4;
+					};
+					FC07CCBF3012B4D600148555 = {
+						CreatedOnToolsVersion = 15.4;
+						TestTargetID = FC07CCAF3012B4D400148555;
+					};
+					FC07CCC93012B4D600148555 = {
+						CreatedOnToolsVersion = 15.4;
+						TestTargetID = FC07CCAF3012B4D400148555;
+					};
+				};
+			};
+			buildConfigurationList = FC07CCAB3012B4D400148555 /* Build configuration list for PBXProject "my-marathon-trackerr" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = FC07CCA73012B4D400148555;
+			packageReferences = (
+				FC07CCDF3012BDB600148555 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
+			productRefGroup = FC07CCB13012B4D400148555 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FC07CCAF3012B4D400148555 /* my-marathon-trackerr */,
+				FC07CCBF3012B4D600148555 /* my-marathon-trackerrTests */,
+				FC07CCC93012B4D600148555 /* my-marathon-trackerrUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		FC07CCAE3012B4D400148555 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FC07CCBB3012B4D600148555 /* Preview Assets.xcassets in Resources */,
+				FC07CCB83012B4D600148555 /* Assets.xcassets in Resources */,
+				FC94B6123012C0F100FCD3D9 /* GoogleService-Info.plist in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC07CCBE3012B4D600148555 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC07CCC83012B4D600148555 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		FC07CCAC3012B4D400148555 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FC07CCB63012B4D400148555 /* ContentView.swift in Sources */,
+				FC07CCE83012C00000148555 /* FirebaseRaceStore.swift in Sources */,
+				FC07CCE93012C00000148555 /* RacePortalView.swift in Sources */,
+				FC07CCB43012B4D400148555 /* my_marathon_trackerrApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC07CCBC3012B4D600148555 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FC07CCC53012B4D600148555 /* my_marathon_trackerrTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC07CCC63012B4D600148555 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FC07CCD13012B4D600148555 /* my_marathon_trackerrUITestsLaunchTests.swift in Sources */,
+				FC07CCCF3012B4D600148555 /* my_marathon_trackerrUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		FC07CCC23012B4D600148555 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FC07CCAF3012B4D400148555 /* my-marathon-trackerr */;
+			targetProxy = FC07CCC13012B4D600148555 /* PBXContainerItemProxy */;
+		};
+		FC07CCCC3012B4D600148555 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FC07CCAF3012B4D400148555 /* my-marathon-trackerr */;
+			targetProxy = FC07CCCB3012B4D600148555 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		FC07CCD23012B4D600148555 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		FC07CCD33012B4D600148555 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		FC07CCD53012B4D600148555 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"my-marathon-trackerr/Preview Content\"";
+				DEVELOPMENT_TEAM = 2S2PR9NBZ9;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "my-marathon-trackerr/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.taylortam.my-marathon-trackerr";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		FC07CCD63012B4D600148555 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"my-marathon-trackerr/Preview Content\"";
+				DEVELOPMENT_TEAM = 2S2PR9NBZ9;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "my-marathon-trackerr/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.taylortam.my-marathon-trackerr";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		FC07CCD83012B4D600148555 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "taylortam.my-marathon-trackerrTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/my-marathon-trackerr.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/my-marathon-trackerr";
+			};
+			name = Debug;
+		};
+		FC07CCD93012B4D600148555 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "taylortam.my-marathon-trackerrTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/my-marathon-trackerr.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/my-marathon-trackerr";
+			};
+			name = Release;
+		};
+		FC07CCDB3012B4D600148555 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "taylortam.my-marathon-trackerrUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "my-marathon-trackerr";
+			};
+			name = Debug;
+		};
+		FC07CCDC3012B4D600148555 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "taylortam.my-marathon-trackerrUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "my-marathon-trackerr";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FC07CCAB3012B4D400148555 /* Build configuration list for PBXProject "my-marathon-trackerr" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FC07CCD23012B4D600148555 /* Debug */,
+				FC07CCD33012B4D600148555 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FC07CCD43012B4D600148555 /* Build configuration list for PBXNativeTarget "my-marathon-trackerr" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FC07CCD53012B4D600148555 /* Debug */,
+				FC07CCD63012B4D600148555 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FC07CCD73012B4D600148555 /* Build configuration list for PBXNativeTarget "my-marathon-trackerrTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FC07CCD83012B4D600148555 /* Debug */,
+				FC07CCD93012B4D600148555 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FC07CCDA3012B4D600148555 /* Build configuration list for PBXNativeTarget "my-marathon-trackerrUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FC07CCDB3012B4D600148555 /* Debug */,
+				FC07CCDC3012B4D600148555 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		FC07CCDF3012BDB600148555 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = exactVersion;
+				version = 11.11.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		FC07CCE43012BE0000148555 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FC07CCDF3012BDB600148555 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		FC07CCE53012BE0000148555 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FC07CCDF3012BDB600148555 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		FC07CCE63012BE0000148555 /* FirebaseFunctions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FC07CCDF3012BDB600148555 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFunctions;
+		};
+		FC07CCE73012BE0000148555 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FC07CCDF3012BDB600148555 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = FC07CCA83012B4D400148555 /* Project object */;
+}

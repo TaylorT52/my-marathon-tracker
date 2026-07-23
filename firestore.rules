@@ -1,0 +1,57 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isMember(raceId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/races/$(raceId)/members/$(request.auth.uid));
+    }
+
+    function isOwner(raceId) {
+      return signedIn()
+        && get(/databases/$(database)/documents/races/$(raceId)).data.ownerId == request.auth.uid;
+    }
+
+    match /races/{raceId} {
+      allow read: if isMember(raceId);
+      allow create: if false;
+      allow update, delete: if isOwner(raceId);
+
+      match /members/{userId} {
+        allow read: if isMember(raceId);
+        allow write: if false;
+      }
+
+      match /state/{stateId} {
+        allow read: if isMember(raceId);
+        allow create, update: if isOwner(raceId)
+          && stateId == "latest"
+          && request.resource.data.latitude is number
+          && request.resource.data.longitude is number
+          && request.resource.data.recordedAt is timestamp;
+        allow delete: if isOwner(raceId);
+      }
+
+      match /updates/{updateId} {
+        allow read: if isMember(raceId);
+        allow create: if isOwner(raceId)
+          && request.resource.data.message is string
+          && request.resource.data.message.size() > 0
+          && request.resource.data.message.size() <= 280;
+        allow update, delete: if isOwner(raceId);
+      }
+    }
+
+    match /raceInvites/{inviteHash} {
+      allow read, write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

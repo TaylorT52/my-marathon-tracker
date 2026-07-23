@@ -1,0 +1,22 @@
+.DS_Store
+
+# Local Firebase app configuration (download from Firebase Console)
+GoogleService-Info.plist
+google-services.json
+
+# Local environment and signing credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.p8
+*.p12
+*.key
+*.keystore
+*.jks
+
+functions/node_modules/
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
