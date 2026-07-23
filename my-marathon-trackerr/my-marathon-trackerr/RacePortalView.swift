@@ -7,7 +7,18 @@ struct RacePortalView: View {
 
     var body: some View {
         Group {
-            if let race = store.activeRace {
+            if store.isRestoringRace {
+                ZStack {
+                    Color(red: 0.96, green: 0.96, blue: 0.94)
+                        .ignoresSafeArea()
+                    VStack(spacing: 14) {
+                        ProgressView()
+                            .controlSize(.large)
+                        Text("Restoring your race…")
+                            .font(.headline)
+                    }
+                }
+            } else if let race = store.activeRace {
                 ConnectedRaceView(race: race, store: store)
             } else {
                 NavigationStack {
@@ -17,6 +28,9 @@ struct RacePortalView: View {
                         ScrollView {
                             VStack(spacing: 24) {
                                 portalHeader
+                                if store.canRetryRaceRecovery {
+                                    recoveryCard
+                                }
                                 Picker("Action", selection: $mode) {
                                     ForEach(PortalMode.allCases) { item in
                                         Text(item.title).tag(item)
@@ -48,6 +62,27 @@ struct RacePortalView: View {
         } message: {
             Text(store.errorMessage ?? "")
         }
+    }
+
+    private var recoveryCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Saved race found", systemImage: "arrow.clockwise.circle.fill")
+                .font(.headline)
+            Text("RunAlong couldn’t reconnect yet. You can retry without losing the saved race.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            HStack {
+                Button("Forget it", role: .destructive) {
+                    store.discardSavedRace()
+                }
+                Spacer()
+                Button("Retry") {
+                    Task { await store.retryRaceRecovery() }
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .portalCard()
     }
 
     private var portalHeader: some View {
@@ -381,7 +416,13 @@ private enum JoinMethod: String, CaseIterable, Identifiable {
 private struct ConnectedRaceView: View {
     let race: ConnectedRace
     @ObservedObject var store: FirebaseRaceStore
-    @State private var showDashboard = false
+    @State private var showDashboard: Bool
+
+    init(race: ConnectedRace, store: FirebaseRaceStore) {
+        self.race = race
+        self.store = store
+        _showDashboard = State(initialValue: race.wasRestored)
+    }
 
     var body: some View {
         if showDashboard {

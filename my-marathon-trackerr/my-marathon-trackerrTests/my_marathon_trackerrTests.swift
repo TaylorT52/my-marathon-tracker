@@ -2,6 +2,35 @@ import XCTest
 @testable import my_marathon_trackerr
 
 final class my_marathon_trackerrTests: XCTestCase {
+    func testActiveRaceSessionRoundTripsWithoutStoringRaceSecrets() {
+        let suiteName = "RaceSessionStoreTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = RaceSessionStore(defaults: defaults)
+        let session = ActiveRaceSession(raceId: "race-123", userId: "user-456")
+
+        store.save(session)
+
+        XCTAssertEqual(store.load(), session)
+        let persistedText = String(
+            data: defaults.data(forKey: "runalong.activeRaceSession")!,
+            encoding: .utf8
+        )
+        XCTAssertFalse(persistedText?.localizedCaseInsensitiveContains("passcode") ?? true)
+    }
+
+    func testLeavingRaceClearsSavedSession() {
+        let suiteName = "RaceSessionStoreTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = RaceSessionStore(defaults: defaults)
+        store.save(ActiveRaceSession(raceId: "race-123", userId: "user-456"))
+
+        store.clear()
+
+        XCTAssertNil(store.load())
+    }
+
     func testPaceCalculation() {
         let pace = RaceMath.pace(seconds: 3_600, miles: 6)
         XCTAssertEqual(pace, 600, accuracy: 0.001)

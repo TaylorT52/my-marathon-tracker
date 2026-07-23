@@ -12,6 +12,8 @@ struct ConnectedRace: Identifiable, Equatable {
     let isPrivate: Bool
     let passcode: String?
     let isOwner: Bool
+    let status: String
+    let wasRestored: Bool
 }
 
 struct PublicRace: Identifiable, Equatable {
@@ -23,6 +25,35 @@ struct PublicRace: Identifiable, Equatable {
     let ownerId: String
 }
 
+struct ActiveRaceSession: Codable, Equatable {
+    let raceId: String
+    let userId: String
+}
+
+final class RaceSessionStore {
+    private let defaults: UserDefaults
+    private let key: String
+
+    init(defaults: UserDefaults = .standard, key: String = "runalong.activeRaceSession") {
+        self.defaults = defaults
+        self.key = key
+    }
+
+    func load() -> ActiveRaceSession? {
+        guard let data = defaults.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(ActiveRaceSession.self, from: data)
+    }
+
+    func save(_ session: ActiveRaceSession) {
+        guard let data = try? JSONEncoder().encode(session) else { return }
+        defaults.set(data, forKey: key)
+    }
+
+    func clear() {
+        defaults.removeObject(forKey: key)
+    }
+}
+
 @MainActor
 final class FirebaseRaceStore: ObservableObject {
     @Published private(set) var user: User?
@@ -30,18 +61,23 @@ final class FirebaseRaceStore: ObservableObject {
     @Published private(set) var publicRaces: [PublicRace] = []
     @Published private(set) var isLoadingPublicRaces = false
     @Published private(set) var isWorking = false
+    @Published private(set) var isRestoringRace = false
+    @Published private(set) var canRetryRaceRecovery = false
     @Published var alertTitle = "Something went wrong"
     @Published var errorMessage: String?
 
     private let auth = Auth.auth()
     private let database = Firestore.firestore()
+    private let sessionStore: RaceSessionStore
     private var authHandle: AuthStateDidChangeListenerHandle?
 
-    init() {
+    init(sessionStore: RaceSessionStore = RaceSessionStore()) {
+        self.sessionStore = sessionStore
         user = auth.currentUser
+        isRestoringRace = sessionStore.load() != nil && auth.currentUser != nil
         authHandle = auth.addStateDidChangeListener { [weak self] _, user in
-            Task { @MainActor in
-                self?.user = user
+            Task { @MainActor [weak self] in
+                await self?.handleAuthChange(user)
             }
         }
     }
@@ -95,8 +131,10 @@ final class FirebaseRaceStore: ObservableObject {
 
     func signOut() {
         do {
+            sessionStore.clear()
             try auth.signOut()
             activeRace = nil
+            canRetryRaceRecovery = false
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -156,8 +194,11 @@ final class FirebaseRaceStore: ObservableObject {
                 targetDistanceMiles: targetDistanceMiles,
                 isPrivate: isPrivate,
                 passcode: passcode,
-                isOwner: true
+                isOwner: true,
+                status: "setup",
+                wasRestored: false
             )
+            self.saveActiveRace(raceId: raceRef.documentID, userId: user.uid)
         }
     }
 
@@ -196,8 +237,10 @@ final class FirebaseRaceStore: ObservableObject {
             self.activeRace = try self.connectedRace(
                 from: race,
                 passcode: ownerId == user.uid ? normalized : nil,
-                isOwner: ownerId == user.uid
+                isOwner: ownerId == user.uid,
+                wasRestored: false
             )
+            self.saveActiveRace(raceId: raceId, userId: user.uid)
         }
     }
 
@@ -237,13 +280,28 @@ final class FirebaseRaceStore: ObservableObject {
             self.activeRace = try self.connectedRace(
                 from: snapshot,
                 passcode: nil,
-                isOwner: isOwner
+                isOwner: isOwner,
+                wasRestored: false
             )
+            self.saveActiveRace(raceId: race.id, userId: user.uid)
         }
     }
 
     func leaveRace() {
+        sessionStore.clear()
         activeRace = nil
+        canRetryRaceRecovery = false
+    }
+
+    func retryRaceRecovery() async {
+        guard let user = auth.currentUser else { return }
+        await restoreActiveRace(for: user)
+    }
+
+    func discardSavedRace() {
+        sessionStore.clear()
+        activeRace = nil
+        canRetryRaceRecovery = false
     }
 
     private func spectatorUser() async throws -> User {
@@ -259,10 +317,10 @@ final class FirebaseRaceStore: ObservableObject {
     private func connectedRace(
         from snapshot: DocumentSnapshot,
         passcode: String?,
-        isOwner: Bool
+        isOwner: Bool,
+        wasRestored: Bool
     ) throws -> ConnectedRace {
         guard let data = snapshot.data(),
-              data["status"] as? String != "ended",
               let raceName = data["raceName"] as? String,
               let runnerName = data["runnerName"] as? String,
               let distance = data["targetDistanceMiles"] as? NSNumber,
@@ -276,8 +334,82 @@ final class FirebaseRaceStore: ObservableObject {
             targetDistanceMiles: distance.doubleValue,
             isPrivate: isPrivate,
             passcode: passcode,
-            isOwner: isOwner
+            isOwner: isOwner,
+            status: data["status"] as? String ?? "setup",
+            wasRestored: wasRestored
         )
+    }
+
+    private func handleAuthChange(_ user: User?) async {
+        self.user = user
+        guard let session = sessionStore.load() else {
+            isRestoringRace = false
+            canRetryRaceRecovery = false
+            return
+        }
+        guard let user else {
+            activeRace = nil
+            isRestoringRace = false
+            return
+        }
+        guard session.userId == user.uid else {
+            sessionStore.clear()
+            activeRace = nil
+            isRestoringRace = false
+            canRetryRaceRecovery = false
+            return
+        }
+        guard activeRace?.id != session.raceId else {
+            isRestoringRace = false
+            return
+        }
+        await restoreActiveRace(for: user)
+    }
+
+    private func restoreActiveRace(for user: User) async {
+        guard let session = sessionStore.load(),
+              session.userId == user.uid else {
+            isRestoringRace = false
+            canRetryRaceRecovery = false
+            return
+        }
+
+        isRestoringRace = true
+        canRetryRaceRecovery = false
+        defer { isRestoringRace = false }
+
+        do {
+            let raceRef = database.collection("races").document(session.raceId)
+            let snapshot = try await raceRef.getDocument()
+            guard let ownerId = snapshot.data()?["ownerId"] as? String else {
+                throw RaceStoreError.raceUnavailable
+            }
+            let isOwner = ownerId == user.uid
+            if !isOwner {
+                let membership = try await raceRef
+                    .collection("members")
+                    .document(user.uid)
+                    .getDocument()
+                guard membership.data()?["role"] as? String == "spectator" else {
+                    throw RaceStoreError.raceUnavailable
+                }
+            }
+            activeRace = try connectedRace(
+                from: snapshot,
+                passcode: nil,
+                isOwner: isOwner,
+                wasRestored: true
+            )
+        } catch {
+            canRetryRaceRecovery = true
+            alertTitle = "Couldn’t restore your race"
+            errorMessage = userFacingMessage(for: error as NSError)
+        }
+    }
+
+    private func saveActiveRace(raceId: String, userId: String) {
+        sessionStore.save(ActiveRaceSession(raceId: raceId, userId: userId))
+        canRetryRaceRecovery = false
     }
 
     private func publicRace(from snapshot: QueryDocumentSnapshot) -> PublicRace? {

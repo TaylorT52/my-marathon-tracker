@@ -170,6 +170,7 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
     private var publishTimer: Timer?
     private var lastPublishedAt: Date?
     private var paceSegments: [PaceSegment] = []
+    private var shouldRestoreRunnerTracking = false
 
     override init() {
         super.init()
@@ -182,6 +183,7 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
         connectedRaceId = connectedRace.id
         isConnectedRace = true
         isOwner = connectedRace.isOwner
+        isFinished = connectedRace.status == "ended"
         connectedTargetDistance = connectedRace.targetDistanceMiles
         runnerName = connectedRace.runnerName
         raceName = connectedRace.raceName
@@ -191,7 +193,10 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
         elapsedSeconds = 0
         updates = []
         isRunnerMode = connectedRace.isOwner
-        locationStatus = connectedRace.isOwner ? "Ready to start live GPS" : "Waiting for the runner"
+        locationStatus = isFinished
+            ? "Race finished"
+            : (connectedRace.isOwner ? "Ready to start live GPS" : "Waiting for the runner")
+        shouldRestoreRunnerTracking = connectedRace.wasRestored && connectedRace.isOwner
         configureLocationManager()
         updateAuthorizationLabel(locationManager.authorizationStatus)
         startLiveListeners()
@@ -480,9 +485,28 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
                         (data["paceSeconds"] as? NSNumber)?.doubleValue ?? 0
                     )
                     self.lastUpdated = (data["recordedAt"] as? Timestamp)?.dateValue() ?? Date()
-                    self.isTracking = data["isTracking"] as? Bool ?? false
-                    self.isFinished = data["isFinished"] as? Bool ?? false
+                    self.isFinished = self.isFinished
+                        || (data["isFinished"] as? Bool ?? false)
+                    self.isTracking = !self.isFinished
+                        && (data["isTracking"] as? Bool ?? false)
                     self.hasLiveLocation = true
+                    if self.shouldRestoreRunnerTracking {
+                        self.shouldRestoreRunnerTracking = false
+                        self.hasStartedRealRace = true
+                        self.elapsedAtStart = self.elapsedSeconds
+                        if self.isTracking {
+                            self.wantsTracking = true
+                            switch self.locationManager.authorizationStatus {
+                            case .notDetermined:
+                                self.locationManager.requestWhenInUseAuthorization()
+                            case .authorizedAlways, .authorizedWhenInUse:
+                                self.beginTracking()
+                            default:
+                                self.isTracking = false
+                                self.locationStatus = "Location permission needed to resume"
+                            }
+                        }
+                    }
                     if !self.isOwner {
                         if self.isFinished {
                             self.locationStatus = "Race finished"
