@@ -227,11 +227,11 @@ final class FirebaseRaceStore: ObservableObject {
 
             let raceRef = self.database.collection("races").document(raceId)
             if ownerId != user.uid {
-                try await raceRef.collection("members").document(user.uid).setData([
-                    "role": "spectator",
-                    "inviteHash": inviteHash,
-                    "joinedAt": FieldValue.serverTimestamp()
-                ])
+                try await self.ensureSpectatorMembership(
+                    raceRef: raceRef,
+                    userId: user.uid,
+                    inviteHash: inviteHash
+                )
             }
             let race = try await raceRef.getDocument()
             self.activeRace = try self.connectedRace(
@@ -271,10 +271,11 @@ final class FirebaseRaceStore: ObservableObject {
             let isOwner = race.ownerId == user.uid
 
             if !isOwner {
-                try await raceRef.collection("members").document(user.uid).setData([
-                    "role": "spectator",
-                    "joinedAt": FieldValue.serverTimestamp()
-                ])
+                try await self.ensureSpectatorMembership(
+                    raceRef: raceRef,
+                    userId: user.uid,
+                    inviteHash: nil
+                )
             }
             let snapshot = try await raceRef.getDocument()
             self.activeRace = try self.connectedRace(
@@ -312,6 +313,36 @@ final class FirebaseRaceStore: ObservableObject {
             try auth.signOut()
         }
         return try await auth.signInAnonymously().user
+    }
+
+    private func ensureSpectatorMembership(
+        raceRef: DocumentReference,
+        userId: String,
+        inviteHash: String?
+    ) async throws {
+        let memberRef = raceRef.collection("members").document(userId)
+        do {
+            let existingMember = try await memberRef.getDocument()
+            guard existingMember.data()?["role"] as? String == "spectator" else {
+                throw RaceStoreError.raceUnavailable
+            }
+            return
+        } catch {
+            let firestoreError = error as NSError
+            guard firestoreError.domain == FirestoreErrorDomain,
+                  firestoreError.code == FirestoreErrorCode.permissionDenied.rawValue else {
+                throw error
+            }
+        }
+
+        var membership: [String: Any] = [
+            "role": "spectator",
+            "joinedAt": FieldValue.serverTimestamp()
+        ]
+        if let inviteHash {
+            membership["inviteHash"] = inviteHash
+        }
+        try await memberRef.setData(membership)
     }
 
     private func connectedRace(

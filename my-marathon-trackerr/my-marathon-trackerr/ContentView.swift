@@ -141,6 +141,7 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
     @Published private(set) var hasLiveLocation = false
     @Published private(set) var isFinished = false
     @Published private(set) var rollingPaceSeconds: TimeInterval = 0
+    @Published private(set) var isForcingUpdate = false
 
     private(set) var connectedRaceId: String?
     private(set) var isConnectedRace = false
@@ -171,6 +172,7 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
     private var lastPublishedAt: Date?
     private var paceSegments: [PaceSegment] = []
     private var shouldRestoreRunnerTracking = false
+    private var forcePublishOnNextLocation = false
 
     override init() {
         super.init()
@@ -331,6 +333,28 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
         }
     }
 
+    func forceUpdate() {
+        guard isConnectedRace, connectedRaceId != nil else { return }
+        if isOwner {
+            guard !isFinished, hasLiveLocation, !isForcingUpdate else { return }
+            switch locationManager.authorizationStatus {
+            case .authorizedAlways, .authorizedWhenInUse:
+                isForcingUpdate = true
+                forcePublishOnNextLocation = true
+                locationStatus = "Getting a fresh GPS fix…"
+                locationManager.requestLocation()
+            case .notDetermined:
+                locationStatus = "Start live tracking to enable GPS"
+                locationManager.requestWhenInUseAuthorization()
+            default:
+                locationStatus = "Location permission needed"
+            }
+        } else {
+            guard !isForcingUpdate else { return }
+            Task { await refreshFromServer() }
+        }
+    }
+
     func sendUpdate(_ message: String) {
         let cleaned = message.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { return }
@@ -372,6 +396,8 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         let message = error.localizedDescription
         Task { @MainActor [weak self] in
+            self?.forcePublishOnNextLocation = false
+            self?.isForcingUpdate = false
             self?.locationStatus = message
         }
     }
@@ -415,7 +441,14 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
         if let trackingStart {
             elapsedSeconds = elapsedAtStart + Date().timeIntervalSince(trackingStart)
         }
-        Task { await publishCurrentState(force: false) }
+        let forcePublish = forcePublishOnNextLocation
+        forcePublishOnNextLocation = false
+        Task {
+            await publishCurrentState(force: forcePublish)
+            if forcePublish {
+                isForcingUpdate = false
+            }
+        }
     }
 
     private func beginTracking() {
@@ -463,58 +496,8 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
                         self.locationStatus = "Live sync error: \(error.localizedDescription)"
                         return
                     }
-                    guard let data = snapshot?.data(),
-                          let latitude = (data["latitude"] as? NSNumber)?.doubleValue,
-                          let longitude = (data["longitude"] as? NSNumber)?.doubleValue,
-                          let distance = (data["distanceMiles"] as? NSNumber)?.doubleValue,
-                          let elapsed = (data["elapsedSeconds"] as? NSNumber)?.doubleValue,
-                          CLLocationCoordinate2DIsValid(
-                            CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-                          ) else {
-                        return
-                    }
-
-                    self.runnerCoordinate = CLLocationCoordinate2D(
-                        latitude: latitude,
-                        longitude: longitude
-                    )
-                    self.distanceMiles = max(0, distance)
-                    self.elapsedSeconds = max(0, elapsed)
-                    self.rollingPaceSeconds = max(
-                        0,
-                        (data["paceSeconds"] as? NSNumber)?.doubleValue ?? 0
-                    )
-                    self.lastUpdated = (data["recordedAt"] as? Timestamp)?.dateValue() ?? Date()
-                    self.isFinished = self.isFinished
-                        || (data["isFinished"] as? Bool ?? false)
-                    self.isTracking = !self.isFinished
-                        && (data["isTracking"] as? Bool ?? false)
-                    self.hasLiveLocation = true
-                    if self.shouldRestoreRunnerTracking {
-                        self.shouldRestoreRunnerTracking = false
-                        self.hasStartedRealRace = true
-                        self.elapsedAtStart = self.elapsedSeconds
-                        if self.isTracking {
-                            self.wantsTracking = true
-                            switch self.locationManager.authorizationStatus {
-                            case .notDetermined:
-                                self.locationManager.requestWhenInUseAuthorization()
-                            case .authorizedAlways, .authorizedWhenInUse:
-                                self.beginTracking()
-                            default:
-                                self.isTracking = false
-                                self.locationStatus = "Location permission needed to resume"
-                            }
-                        }
-                    }
-                    if !self.isOwner {
-                        if self.isFinished {
-                            self.locationStatus = "Race finished"
-                        } else {
-                            self.locationStatus = self.isTracking
-                                ? "Receiving live GPS"
-                                : "The runner’s tracking is paused"
-                        }
+                    if let data = snapshot?.data() {
+                        self.applyRemoteState(data)
                     }
                 }
             }
@@ -529,21 +512,106 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
                         self.locationStatus = "Updates sync error: \(error.localizedDescription)"
                         return
                     }
-                    self.updates = snapshot?.documents.compactMap { document in
-                        let data = document.data()
-                        guard let message = data["message"] as? String,
-                              let mile = (data["mile"] as? NSNumber)?.doubleValue else {
-                            return nil
-                        }
-                        return RaceUpdate(
-                            id: document.documentID,
-                            message: message,
-                            sentAt: (data["sentAt"] as? Timestamp)?.dateValue() ?? Date(),
-                            mile: mile
-                        )
-                    } ?? []
+                    self.applyRemoteUpdates(snapshot?.documents ?? [])
                 }
             }
+    }
+
+    private func applyRemoteState(_ data: [String: Any]) {
+        guard let latitude = (data["latitude"] as? NSNumber)?.doubleValue,
+              let longitude = (data["longitude"] as? NSNumber)?.doubleValue,
+              let distance = (data["distanceMiles"] as? NSNumber)?.doubleValue,
+              let elapsed = (data["elapsedSeconds"] as? NSNumber)?.doubleValue,
+              CLLocationCoordinate2DIsValid(
+                CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+              ) else {
+            return
+        }
+
+        runnerCoordinate = CLLocationCoordinate2D(
+            latitude: latitude,
+            longitude: longitude
+        )
+        distanceMiles = max(0, distance)
+        elapsedSeconds = max(0, elapsed)
+        rollingPaceSeconds = max(
+            0,
+            (data["paceSeconds"] as? NSNumber)?.doubleValue ?? 0
+        )
+        lastUpdated = (data["recordedAt"] as? Timestamp)?.dateValue() ?? Date()
+        isFinished = isFinished || (data["isFinished"] as? Bool ?? false)
+        isTracking = !isFinished && (data["isTracking"] as? Bool ?? false)
+        hasLiveLocation = true
+        if shouldRestoreRunnerTracking {
+            shouldRestoreRunnerTracking = false
+            hasStartedRealRace = true
+            elapsedAtStart = elapsedSeconds
+            if isTracking {
+                wantsTracking = true
+                switch locationManager.authorizationStatus {
+                case .notDetermined:
+                    locationManager.requestWhenInUseAuthorization()
+                case .authorizedAlways, .authorizedWhenInUse:
+                    beginTracking()
+                default:
+                    isTracking = false
+                    locationStatus = "Location permission needed to resume"
+                }
+            }
+        }
+        if !isOwner {
+            if isFinished {
+                locationStatus = "Race finished"
+            } else {
+                locationStatus = isTracking
+                    ? "Receiving live GPS"
+                    : "The runner’s tracking is paused"
+            }
+        }
+    }
+
+    private func applyRemoteUpdates(_ documents: [QueryDocumentSnapshot]) {
+        updates = documents.compactMap { document in
+            let data = document.data()
+            guard let message = data["message"] as? String,
+                  let mile = (data["mile"] as? NSNumber)?.doubleValue else {
+                return nil
+            }
+            return RaceUpdate(
+                id: document.documentID,
+                message: message,
+                sentAt: (data["sentAt"] as? Timestamp)?.dateValue() ?? Date(),
+                mile: mile
+            )
+        }
+    }
+
+    private func refreshFromServer() async {
+        guard let connectedRaceId else { return }
+        isForcingUpdate = true
+        locationStatus = "Refreshing from server…"
+        defer { isForcingUpdate = false }
+
+        do {
+            let raceRef = Firestore.firestore().collection("races").document(connectedRaceId)
+            async let stateSnapshot = raceRef
+                .collection("state")
+                .document("latest")
+                .getDocument(source: .server)
+            async let updatesSnapshot = raceRef
+                .collection("updates")
+                .order(by: "sentAt", descending: true)
+                .limit(to: 20)
+                .getDocuments(source: .server)
+            let (state, latestUpdates) = try await (stateSnapshot, updatesSnapshot)
+            if let data = state.data() {
+                applyRemoteState(data)
+            }
+            applyRemoteUpdates(latestUpdates.documents)
+            locationStatus = isFinished ? "Final result refreshed" : "Updated from server"
+        } catch {
+            locationStatus = "Refresh failed: \(error.localizedDescription)"
+        }
     }
 
     private func publishCurrentState(force: Bool) async {
@@ -952,6 +1020,21 @@ struct ContentView: View {
                     }
 
                     if race.hasLiveLocation {
+                        Button {
+                            race.forceUpdate()
+                        } label: {
+                            Label(
+                                race.isForcingUpdate ? "Syncing…" : "Sync now",
+                                systemImage: "arrow.triangle.2.circlepath"
+                            )
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(AppTheme.ink)
+                        .disabled(race.isForcingUpdate)
+
                         Button(role: .destructive) {
                             showFinishConfirmation = true
                         } label: {
@@ -968,6 +1051,21 @@ struct ContentView: View {
                     .font(.caption)
                     .foregroundStyle(AppTheme.muted)
             } else {
+                Button {
+                    race.forceUpdate()
+                } label: {
+                    Label(
+                        race.isForcingUpdate ? "Refreshing…" : "Refresh now",
+                        systemImage: "arrow.clockwise"
+                    )
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                }
+                .buttonStyle(.bordered)
+                .tint(AppTheme.ink)
+                .disabled(race.isForcingUpdate)
+
                 ShareLink(item: "Follow \(race.runnerName) at https://runalong.app/race/\(race.shareCode.lowercased())") {
                     Label("Invite another cheerleader", systemImage: "square.and.arrow.up")
                         .font(.headline)
@@ -976,6 +1074,9 @@ struct ContentView: View {
                         .background(AppTheme.ink, in: RoundedRectangle(cornerRadius: 16))
                         .foregroundStyle(.white)
                 }
+                Text(race.locationStatus)
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.muted)
             }
             Text("Location and finish time are estimates. GPS and course conditions can cause delays.")
                 .font(.caption)

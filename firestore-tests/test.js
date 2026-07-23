@@ -162,6 +162,17 @@ describe("RunAlong spectator access", () => {
     ));
   });
 
+  it("lets a returning spectator reuse membership after exiting", async () => {
+    const spectator = spectatorDatabase();
+    const membership = await assertSucceeds(getDoc(
+        doc(spectator, "races", raceId, "members", "spectator"),
+    ));
+    if (membership.data()?.role !== "spectator") {
+      throw new Error("Returning viewer lost the spectator role.");
+    }
+    await assertSucceeds(getDoc(doc(spectator, "races", raceId)));
+  });
+
   it("joins a private race as a spectator, never as a runner", async () => {
     const spectator = spectatorDatabase();
     const memberRef = doc(
