@@ -248,7 +248,10 @@ final class FirebaseRaceStore: ObservableObject {
 
     private func spectatorUser() async throws -> User {
         if let user = auth.currentUser {
-            return user
+            if user.isAnonymous {
+                return user
+            }
+            try auth.signOut()
         }
         return try await auth.signInAnonymously().user
     }

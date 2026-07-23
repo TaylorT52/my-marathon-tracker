@@ -58,8 +58,8 @@ service cloud.firestore {
       allow list: if resource.data.isPrivate == false;
       allow create: if validRaceCreate();
       allow update: if isOwner(raceId)
-        && request.resource.data.ownerId == resource.data.ownerId
-        && request.resource.data.isPrivate == resource.data.isPrivate;
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status"])
+        && request.resource.data.status in ["setup", "live", "paused", "ended"];
       allow delete: if isOwner(raceId);
 
       match /members/{userId} {
@@ -96,21 +96,71 @@ service cloud.firestore {
 
       match /state/{stateId} {
         allow read: if isMember(raceId);
-        allow create, update: if isOwner(raceId)
+        allow create: if isOwner(raceId)
           && stateId == "latest"
+          && request.resource.data.keys().hasOnly([
+            "latitude",
+            "longitude",
+            "distanceMiles",
+            "elapsedSeconds",
+            "isTracking",
+            "recordedAt"
+          ])
           && request.resource.data.latitude is number
+          && request.resource.data.latitude >= -90
+          && request.resource.data.latitude <= 90
           && request.resource.data.longitude is number
-          && request.resource.data.recordedAt is timestamp;
+          && request.resource.data.longitude >= -180
+          && request.resource.data.longitude <= 180
+          && request.resource.data.distanceMiles is number
+          && request.resource.data.distanceMiles >= 0
+          && request.resource.data.distanceMiles <= 500
+          && request.resource.data.elapsedSeconds is number
+          && request.resource.data.elapsedSeconds >= 0
+          && request.resource.data.elapsedSeconds <= 604800
+          && request.resource.data.isTracking is bool
+          && request.resource.data.recordedAt == request.time;
+        allow update: if isOwner(raceId)
+          && stateId == "latest"
+          && request.resource.data.keys().hasOnly([
+            "latitude",
+            "longitude",
+            "distanceMiles",
+            "elapsedSeconds",
+            "isTracking",
+            "recordedAt"
+          ])
+          && request.resource.data.latitude is number
+          && request.resource.data.latitude >= -90
+          && request.resource.data.latitude <= 90
+          && request.resource.data.longitude is number
+          && request.resource.data.longitude >= -180
+          && request.resource.data.longitude <= 180
+          && request.resource.data.distanceMiles is number
+          && request.resource.data.distanceMiles >= resource.data.distanceMiles
+          && request.resource.data.distanceMiles <= 500
+          && request.resource.data.elapsedSeconds is number
+          && request.resource.data.elapsedSeconds >= resource.data.elapsedSeconds
+          && request.resource.data.elapsedSeconds <= 604800
+          && request.resource.data.isTracking is bool
+          && request.resource.data.recordedAt == request.time
+          && request.resource.data.recordedAt > resource.data.recordedAt;
         allow delete: if isOwner(raceId);
       }
 
       match /updates/{updateId} {
         allow read: if isMember(raceId);
         allow create: if isOwner(raceId)
+          && request.resource.data.keys().hasOnly(["message", "mile", "sentAt"])
           && request.resource.data.message is string
           && request.resource.data.message.size() > 0
-          && request.resource.data.message.size() <= 280;
-        allow update, delete: if isOwner(raceId);
+          && request.resource.data.message.size() <= 280
+          && request.resource.data.mile is number
+          && request.resource.data.mile >= 0
+          && request.resource.data.mile <= 500
+          && request.resource.data.sentAt == request.time;
+        allow update: if false;
+        allow delete: if isOwner(raceId);
       }
     }
 

@@ -16,6 +16,7 @@ google-services.json
 *.jks
 
 functions/node_modules/
+firestore-tests/node_modules/
 .firebase/
 firebase-debug.log
 firestore-debug.log

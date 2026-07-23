@@ -385,7 +385,9 @@ private struct ConnectedRaceView: View {
 
     var body: some View {
         if showDashboard {
-            ContentView()
+            ContentView(connectedRace: race) {
+                showDashboard = false
+            }
         } else {
             ZStack {
                 Color(red: 0.96, green: 0.96, blue: 0.94).ignoresSafeArea()

@@ -54,8 +54,10 @@ Suggested backend records:
 
 Firebase Authentication, secure race creation, anonymous passcode joining,
 and Firestore membership rules are scaffolded in the repository. This version
-works on Firebase's free Spark plan and does not require Cloud Functions. Live
-GPS state and update syncing are the next backend phase.
+works on Firebase's free Spark plan and does not require Cloud Functions.
+Runner GPS state and short race updates sync through Firestore snapshot
+listeners so joined spectators receive location, distance, pace, and finish
+estimate changes without refreshing.
 
 Before using race creation:
 
@@ -88,13 +90,13 @@ You can test the current on-device tracking:
    and select `TestData/SanFranciscoRun.gpx`.
 5. Confirm that the marker, distance, pace, progress, and finish estimate change.
 
-Once the realtime backend is added, test it in three layers:
+Test the realtime backend in three layers:
 
-1. Start the backend locally and run its schema/authorization tests.
-2. Launch the iOS app with a debug backend URL, publish a simulated Xcode GPX
-   route, and verify location rows and updates appear.
-3. Open the private spectator URL in a second browser or phone and confirm that
-   location, pace, finish estimate, and messages update without refreshing.
+1. Create a race as the runner and open it from a second simulator or phone.
+2. Publish the included simulated Xcode GPX route and verify
+   `races/{raceId}/state/latest` changes in Firestore.
+3. Confirm that the spectator map, distance, pace, finish estimate, and messages
+   update without refreshing.
 
 The minimum end-to-end checks are: an invalid share token cannot read a race;
 only the runner can publish; stale/out-of-order GPS points are rejected; a

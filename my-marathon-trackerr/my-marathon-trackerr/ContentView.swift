@@ -1,4 +1,5 @@
 import CoreLocation
+import FirebaseFirestore
 import MapKit
 import SwiftUI
 
@@ -11,10 +12,17 @@ private enum AppTheme {
 }
 
 struct RaceUpdate: Identifiable, Equatable {
-    let id = UUID()
+    let id: String
     let message: String
     let sentAt: Date
     let mile: Double
+
+    init(id: String = UUID().uuidString, message: String, sentAt: Date, mile: Double) {
+        self.id = id
+        self.message = message
+        self.sentAt = sentAt
+        self.mile = mile
+    }
 }
 
 enum RaceDistancePreset: String, CaseIterable, Identifiable {
@@ -101,6 +109,12 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
         RaceUpdate(message: "Settled into my pace. See you all at the finish!", sentAt: Date().addingTimeInterval(-96 * 60), mile: 6.4)
     ]
     @Published var locationStatus = "Location is off"
+    @Published private(set) var hasLiveLocation = false
+
+    private(set) var connectedRaceId: String?
+    private(set) var isConnectedRace = false
+    private(set) var isOwner = false
+    private var connectedTargetDistance: Double?
 
     let course: [CLLocationCoordinate2D] = [
         .init(latitude: 37.8078, longitude: -122.4183),
@@ -120,15 +134,49 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
     private var elapsedAtStart: TimeInterval = 0
     private var wantsTracking = false
     private var hasStartedRealRace = false
+    private var stateListener: ListenerRegistration?
+    private var updatesListener: ListenerRegistration?
+    private var publishTimer: Timer?
+    private var lastPublishedAt: Date?
 
     override init() {
         super.init()
+        configureLocationManager()
+        updateAuthorizationLabel(locationManager.authorizationStatus)
+    }
+
+    init(connectedRace: ConnectedRace) {
+        super.init()
+        connectedRaceId = connectedRace.id
+        isConnectedRace = true
+        isOwner = connectedRace.isOwner
+        connectedTargetDistance = connectedRace.targetDistanceMiles
+        runnerName = connectedRace.runnerName
+        raceName = connectedRace.raceName
+        customDistanceMiles = connectedRace.targetDistanceMiles
+        distancePreset = .custom
+        distanceMiles = 0
+        elapsedSeconds = 0
+        updates = []
+        isRunnerMode = connectedRace.isOwner
+        locationStatus = connectedRace.isOwner ? "Ready to start live GPS" : "Waiting for the runner"
+        configureLocationManager()
+        updateAuthorizationLabel(locationManager.authorizationStatus)
+        startLiveListeners()
+    }
+
+    deinit {
+        stateListener?.remove()
+        updatesListener?.remove()
+        publishTimer?.invalidate()
+    }
+
+    private func configureLocationManager() {
         locationManager.delegate = self
         locationManager.activityType = .fitness
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.distanceFilter = 8
         locationManager.pausesLocationUpdatesAutomatically = false
-        updateAuthorizationLabel(locationManager.authorizationStatus)
     }
 
     var paceSeconds: TimeInterval {
@@ -144,13 +192,28 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
         ) ?? Calendar.current.date(byAdding: .hour, value: 4, to: Date())!
     }
 
+    var estimatedFinishText: String {
+        guard let estimate = RaceMath.estimatedFinish(
+            start: Date().addingTimeInterval(-elapsedSeconds),
+            elapsedSeconds: elapsedSeconds,
+            distanceMiles: distanceMiles,
+            targetDistanceMiles: targetDistanceMiles
+        ) else {
+            return "—"
+        }
+        return estimate.formatted(date: .omitted, time: .shortened)
+    }
+
     var targetDistanceMiles: Double {
-        let distance = distancePreset.miles ?? customDistanceMiles
+        let distance = connectedTargetDistance ?? distancePreset.miles ?? customDistanceMiles
         guard distance.isFinite, distance > 0 else { return 0.1 }
         return distance
     }
 
     var targetDistanceText: String {
+        if let connectedTargetDistance {
+            return "\(connectedTargetDistance.formatted(.number.precision(.fractionLength(0...2)))) MI"
+        }
         if distancePreset == .custom {
             return "\(customDistanceMiles.formatted(.number.precision(.fractionLength(0...2)))) MI"
         }
@@ -168,11 +231,18 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
     }
 
     func toggleTracking() {
+        guard !isConnectedRace || isOwner else { return }
         if isTracking {
             locationManager.stopUpdatingLocation()
+            publishTimer?.invalidate()
+            publishTimer = nil
             wantsTracking = false
             isTracking = false
             locationStatus = "Tracking paused"
+            Task {
+                await publishCurrentState(force: true)
+                await updateRaceStatus("paused")
+            }
             return
         }
 
@@ -191,7 +261,25 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
     func sendUpdate(_ message: String) {
         let cleaned = message.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { return }
-        updates.insert(RaceUpdate(message: cleaned, sentAt: Date(), mile: distanceMiles), at: 0)
+        if let connectedRaceId, isOwner {
+            Task {
+                do {
+                    try await Firestore.firestore()
+                        .collection("races")
+                        .document(connectedRaceId)
+                        .collection("updates")
+                        .addDocument(data: [
+                            "message": cleaned,
+                            "mile": distanceMiles,
+                            "sentAt": FieldValue.serverTimestamp()
+                        ])
+                } catch {
+                    locationStatus = "Update failed: \(error.localizedDescription)"
+                }
+            }
+        } else {
+            updates.insert(RaceUpdate(message: cleaned, sentAt: Date(), mile: distanceMiles), at: 0)
+        }
     }
 
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
@@ -234,10 +322,12 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
         }
         previousLocation = latest
         runnerCoordinate = latest.coordinate
+        hasLiveLocation = true
         lastUpdated = latest.timestamp
         if let trackingStart {
             elapsedSeconds = elapsedAtStart + Date().timeIntervalSince(trackingStart)
         }
+        Task { await publishCurrentState(force: false) }
     }
 
     private func beginTracking() {
@@ -254,6 +344,128 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
         locationManager.startUpdatingLocation()
         isTracking = true
         locationStatus = "Live GPS is on"
+        startPublishTimer()
+        Task { await updateRaceStatus("live") }
+    }
+
+    private func startPublishTimer() {
+        publishTimer?.invalidate()
+        publishTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.isTracking else { return }
+                if let trackingStart = self.trackingStart {
+                    self.elapsedSeconds = self.elapsedAtStart + Date().timeIntervalSince(trackingStart)
+                }
+                await self.publishCurrentState(force: true)
+            }
+        }
+    }
+
+    private func startLiveListeners() {
+        guard let connectedRaceId else { return }
+        let raceRef = Firestore.firestore().collection("races").document(connectedRaceId)
+
+        stateListener = raceRef.collection("state").document("latest")
+            .addSnapshotListener { [weak self] snapshot, error in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    if let error {
+                        self.locationStatus = "Live sync error: \(error.localizedDescription)"
+                        return
+                    }
+                    guard let data = snapshot?.data(),
+                          let latitude = (data["latitude"] as? NSNumber)?.doubleValue,
+                          let longitude = (data["longitude"] as? NSNumber)?.doubleValue,
+                          let distance = (data["distanceMiles"] as? NSNumber)?.doubleValue,
+                          let elapsed = (data["elapsedSeconds"] as? NSNumber)?.doubleValue,
+                          CLLocationCoordinate2DIsValid(
+                            CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+                          ) else {
+                        return
+                    }
+
+                    self.runnerCoordinate = CLLocationCoordinate2D(
+                        latitude: latitude,
+                        longitude: longitude
+                    )
+                    self.distanceMiles = max(0, distance)
+                    self.elapsedSeconds = max(0, elapsed)
+                    self.lastUpdated = (data["recordedAt"] as? Timestamp)?.dateValue() ?? Date()
+                    self.isTracking = data["isTracking"] as? Bool ?? false
+                    self.hasLiveLocation = true
+                    if !self.isOwner {
+                        self.locationStatus = self.isTracking
+                            ? "Receiving live GPS"
+                            : "The runner’s tracking is paused"
+                    }
+                }
+            }
+
+        updatesListener = raceRef.collection("updates")
+            .order(by: "sentAt", descending: true)
+            .limit(to: 20)
+            .addSnapshotListener { [weak self] snapshot, error in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    if let error {
+                        self.locationStatus = "Updates sync error: \(error.localizedDescription)"
+                        return
+                    }
+                    self.updates = snapshot?.documents.compactMap { document in
+                        let data = document.data()
+                        guard let message = data["message"] as? String,
+                              let mile = (data["mile"] as? NSNumber)?.doubleValue else {
+                            return nil
+                        }
+                        return RaceUpdate(
+                            id: document.documentID,
+                            message: message,
+                            sentAt: (data["sentAt"] as? Timestamp)?.dateValue() ?? Date(),
+                            mile: mile
+                        )
+                    } ?? []
+                }
+            }
+    }
+
+    private func publishCurrentState(force: Bool) async {
+        guard let connectedRaceId, isOwner, hasLiveLocation else { return }
+        if !force, let lastPublishedAt,
+           Date().timeIntervalSince(lastPublishedAt) < 10 {
+            return
+        }
+        lastPublishedAt = Date()
+
+        do {
+            try await Firestore.firestore()
+                .collection("races")
+                .document(connectedRaceId)
+                .collection("state")
+                .document("latest")
+                .setData([
+                    "latitude": runnerCoordinate.latitude,
+                    "longitude": runnerCoordinate.longitude,
+                    "distanceMiles": distanceMiles,
+                    "elapsedSeconds": elapsedSeconds,
+                    "isTracking": isTracking,
+                    "recordedAt": FieldValue.serverTimestamp()
+                ])
+            locationStatus = isTracking ? "Live GPS synced" : "Tracking paused"
+        } catch {
+            locationStatus = "GPS sync failed: \(error.localizedDescription)"
+        }
+    }
+
+    private func updateRaceStatus(_ status: String) async {
+        guard let connectedRaceId, isOwner else { return }
+        do {
+            try await Firestore.firestore()
+                .collection("races")
+                .document(connectedRaceId)
+                .updateData(["status": status])
+        } catch {
+            locationStatus = "Status sync failed: \(error.localizedDescription)"
+        }
     }
 
     private func configureBackgroundTrackingIfAvailable() {
@@ -275,7 +487,8 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
 }
 
 struct ContentView: View {
-    @StateObject private var race = RaceViewModel()
+    @StateObject private var race: RaceViewModel
+    private let onExit: (() -> Void)?
     @State private var camera: MapCameraPosition = .region(
         MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: 37.7805, longitude: -122.4300),
@@ -284,6 +497,17 @@ struct ContentView: View {
     )
     @State private var showComposer = false
     @State private var showSettings = false
+    @State private var hasCenteredOnLiveLocation = false
+
+    init() {
+        _race = StateObject(wrappedValue: RaceViewModel())
+        onExit = nil
+    }
+
+    init(connectedRace: ConnectedRace, onExit: @escaping () -> Void) {
+        _race = StateObject(wrappedValue: RaceViewModel(connectedRace: connectedRace))
+        self.onExit = onExit
+    }
 
     var body: some View {
         NavigationStack {
@@ -305,14 +529,19 @@ struct ContentView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { BrandMark() }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showSettings = true } label: {
-                        Image(systemName: "slider.horizontal.3")
-                            .font(.system(size: 16, weight: .semibold))
-                            .frame(width: 38, height: 38)
-                            .background(.white, in: Circle())
+                    if let onExit {
+                        Button("Exit", action: onExit)
+                            .fontWeight(.semibold)
+                    } else {
+                        Button { showSettings = true } label: {
+                            Image(systemName: "slider.horizontal.3")
+                                .font(.system(size: 16, weight: .semibold))
+                                .frame(width: 38, height: 38)
+                                .background(.white, in: Circle())
+                        }
+                        .foregroundStyle(AppTheme.ink)
+                        .accessibilityLabel("Race settings")
                     }
-                    .foregroundStyle(AppTheme.ink)
-                    .accessibilityLabel("Race settings")
                 }
             }
             .sheet(isPresented: $showComposer) {
@@ -327,6 +556,16 @@ struct ContentView: View {
             }
         }
         .tint(AppTheme.orange)
+        .onChange(of: race.lastUpdated) { _, _ in
+            guard race.hasLiveLocation, !hasCenteredOnLiveLocation else { return }
+            hasCenteredOnLiveLocation = true
+            camera = .region(
+                MKCoordinateRegion(
+                    center: race.runnerCoordinate,
+                    span: MKCoordinateSpan(latitudeDelta: 0.025, longitudeDelta: 0.025)
+                )
+            )
+        }
     }
 
     private var raceHeader: some View {
@@ -342,13 +581,22 @@ struct ContentView: View {
                         .foregroundStyle(AppTheme.ink)
                 }
                 Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("BIB")
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(AppTheme.muted)
-                    Text(race.bibNumber)
-                        .font(.system(.title3, design: .monospaced, weight: .bold))
-                        .foregroundStyle(AppTheme.ink)
+                if race.isConnectedRace {
+                    Label(
+                        race.isOwner ? "RUNNER" : "WATCHING",
+                        systemImage: race.isOwner ? "figure.run" : "eye.fill"
+                    )
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(AppTheme.muted)
+                } else {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("BIB")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(AppTheme.muted)
+                        Text(race.bibNumber)
+                            .font(.system(.title3, design: .monospaced, weight: .bold))
+                            .foregroundStyle(AppTheme.ink)
+                    }
                 }
             }
             Text("Live race-day progress, shared with the people cheering loudest.")
@@ -360,21 +608,25 @@ struct ContentView: View {
 
     private var liveMap: some View {
         Map(position: $camera, interactionModes: [.pan, .zoom]) {
-            MapPolyline(coordinates: race.course)
-                .stroke(.white.opacity(0.95), style: StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round))
-            MapPolyline(coordinates: race.course)
-                .stroke(AppTheme.ink.opacity(0.28), style: StrokeStyle(lineWidth: 3, dash: [2, 7]))
-            MapPolyline(coordinates: race.completedCourse)
-                .stroke(AppTheme.orange, style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
+            if !race.isConnectedRace {
+                MapPolyline(coordinates: race.course)
+                    .stroke(.white.opacity(0.95), style: StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round))
+                MapPolyline(coordinates: race.course)
+                    .stroke(AppTheme.ink.opacity(0.28), style: StrokeStyle(lineWidth: 3, dash: [2, 7]))
+                MapPolyline(coordinates: race.completedCourse)
+                    .stroke(AppTheme.orange, style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
 
-            Annotation("Start", coordinate: race.course.first!) {
-                CoursePin(symbol: "flag.fill", color: AppTheme.ink)
+                Annotation("Start", coordinate: race.course.first!) {
+                    CoursePin(symbol: "flag.fill", color: AppTheme.ink)
+                }
+                Annotation("Finish", coordinate: race.course.last!) {
+                    CoursePin(symbol: "flag.checkered", color: AppTheme.mint)
+                }
             }
-            Annotation("Finish", coordinate: race.course.last!) {
-                CoursePin(symbol: "flag.checkered", color: AppTheme.mint)
-            }
-            Annotation(race.runnerName, coordinate: race.runnerCoordinate, anchor: .bottom) {
-                RunnerPin(name: race.runnerName)
+            if race.hasLiveLocation || !race.isConnectedRace {
+                Annotation(race.runnerName, coordinate: race.runnerCoordinate, anchor: .bottom) {
+                    RunnerPin(name: race.runnerName)
+                }
             }
         }
         .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
@@ -385,7 +637,11 @@ struct ContentView: View {
                 Circle()
                     .fill(race.isTracking ? AppTheme.mint : AppTheme.orange)
                     .frame(width: 8, height: 8)
-                Text(race.isTracking ? "LIVE GPS" : "DEMO LIVE")
+                Text(
+                    race.isTracking
+                        ? "LIVE GPS"
+                        : (race.isConnectedRace ? "WAITING FOR GPS" : "DEMO LIVE")
+                )
                     .font(.caption2.weight(.black))
                     .tracking(0.8)
                 Text("· \(race.lastUpdated.formatted(.relative(presentation: .numeric)))")
@@ -396,6 +652,19 @@ struct ContentView: View {
             .padding(.vertical, 9)
             .background(.ultraThickMaterial, in: Capsule())
             .padding(14)
+        }
+        .overlay {
+            if race.isConnectedRace && !race.hasLiveLocation {
+                VStack(spacing: 8) {
+                    Image(systemName: "location.slash")
+                        .font(.title2)
+                    Text(race.isOwner ? "Start live tracking to share your location" : "Waiting for the runner to start")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .foregroundStyle(AppTheme.muted)
+                .padding(18)
+                .background(.ultraThickMaterial, in: RoundedRectangle(cornerRadius: 16))
+            }
         }
         .overlay(alignment: .bottomTrailing) {
             Button {
@@ -426,7 +695,7 @@ struct ContentView: View {
             Divider().frame(height: 52)
             Stat(value: race.distanceMiles.formatted(.number.precision(.fractionLength(1))), unit: "MI", label: "DISTANCE")
             Divider().frame(height: 52)
-            Stat(value: race.estimatedFinish.formatted(date: .omitted, time: .shortened), unit: "", label: "EST. FINISH")
+            Stat(value: race.estimatedFinishText, unit: "", label: "EST. FINISH")
         }
         .padding(.vertical, 18)
         .background(.white, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -511,6 +780,11 @@ struct ContentView: View {
                             .foregroundStyle(AppTheme.muted)
                     }
                 }
+            }
+            if race.updates.isEmpty {
+                Text(race.isOwner ? "Post an update for everyone watching." : "No runner updates yet.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.muted)
             }
         }
         .padding(18)
