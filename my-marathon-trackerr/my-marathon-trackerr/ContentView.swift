@@ -678,6 +678,22 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
     }
 }
 
+@MainActor
+private final class RaceSessionRegistry {
+    static let shared = RaceSessionRegistry()
+
+    private var models: [String: RaceViewModel] = [:]
+
+    func model(for race: ConnectedRace) -> RaceViewModel {
+        if let existing = models[race.id] {
+            return existing
+        }
+        let model = RaceViewModel(connectedRace: race)
+        models[race.id] = model
+        return model
+    }
+}
+
 struct ContentView: View {
     @StateObject private var race: RaceViewModel
     private let onExit: (() -> Void)?
@@ -698,7 +714,7 @@ struct ContentView: View {
     }
 
     init(connectedRace: ConnectedRace, onExit: @escaping () -> Void) {
-        _race = StateObject(wrappedValue: RaceViewModel(connectedRace: connectedRace))
+        _race = StateObject(wrappedValue: RaceSessionRegistry.shared.model(for: connectedRace))
         self.onExit = onExit
     }
 

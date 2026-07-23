@@ -16,6 +16,7 @@ const {
   serverTimestamp,
   setDoc,
   Timestamp,
+  where,
 } = require("firebase/firestore");
 const {after, before, beforeEach, describe, it} = require("mocha");
 
@@ -171,6 +172,23 @@ describe("RunAlong spectator access", () => {
       throw new Error("Returning viewer lost the spectator role.");
     }
     await assertSucceeds(getDoc(doc(spectator, "races", raceId)));
+  });
+
+  it("lets a creator list public and private races they own", async () => {
+    const owner = ownerDatabase();
+    const ownedRaces = await assertSucceeds(getDocs(query(
+        collection(owner, "races"),
+        where("ownerId", "==", "owner"),
+    )));
+    if (ownedRaces.size !== 2) {
+      throw new Error("Creator did not receive every owned race.");
+    }
+
+    const outsider = outsiderDatabase();
+    await assertFails(getDocs(query(
+        collection(outsider, "races"),
+        where("ownerId", "==", "owner"),
+    )));
   });
 
   it("joins a private race as a spectator, never as a runner", async () => {

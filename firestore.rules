@@ -55,7 +55,8 @@ service cloud.firestore {
       allow get: if resource.data.isPrivate == false
         || isMember(raceId)
         || (signedIn() && resource.data.ownerId == request.auth.uid);
-      allow list: if resource.data.isPrivate == false;
+      allow list: if resource.data.isPrivate == false
+        || (signedIn() && resource.data.ownerId == request.auth.uid);
       allow create: if validRaceCreate();
       allow update: if isOwner(raceId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status"])

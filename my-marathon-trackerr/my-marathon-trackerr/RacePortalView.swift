@@ -40,8 +40,10 @@ struct RacePortalView: View {
 
                                 if mode == .create {
                                     CreatorFlow(store: store)
-                                } else {
+                                } else if mode == .join {
                                     JoinFlow(store: store)
+                                } else {
+                                    MyRacesFlow(store: store)
                                 }
                             }
                             .padding(20)
@@ -61,6 +63,10 @@ struct RacePortalView: View {
             Button("OK", role: .cancel) { store.errorMessage = nil }
         } message: {
             Text(store.errorMessage ?? "")
+        }
+        .onChange(of: store.activeRace) { previous, current in
+            guard let previous, current == nil else { return }
+            mode = previous.isOwner ? .myRaces : .join
         }
     }
 
@@ -104,9 +110,16 @@ struct RacePortalView: View {
 private enum PortalMode: String, CaseIterable, Identifiable {
     case create
     case join
+    case myRaces
 
     var id: Self { self }
-    var title: String { self == .create ? "Create a race" : "Join a race" }
+    var title: String {
+        switch self {
+        case .create: "Create"
+        case .join: "Join"
+        case .myRaces: "My races"
+        }
+    }
 }
 
 private struct CreatorFlow: View {
@@ -279,6 +292,115 @@ private enum CreatorField: Hashable {
     case runnerName
     case raceName
     case distance
+}
+
+private struct MyRacesFlow: View {
+    @ObservedObject var store: FirebaseRaceStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("My races")
+                    .font(.title2.weight(.bold))
+                Spacer()
+                if store.isCreatorSignedIn {
+                    Button {
+                        Task { await store.loadMyRaces() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .accessibilityLabel("Refresh my races")
+                    .disabled(store.isLoadingMyRaces)
+                }
+            }
+
+            if !store.isCreatorSignedIn {
+                ContentUnavailableView(
+                    "Creator sign-in required",
+                    systemImage: "person.crop.circle.badge.exclamationmark",
+                    description: Text("Sign in under Create to see races you own.")
+                )
+            } else if store.myRaces.isEmpty && !store.isLoadingMyRaces {
+                ContentUnavailableView(
+                    "No races yet",
+                    systemImage: "flag.checkered",
+                    description: Text("Create a race and it will appear here.")
+                )
+            } else {
+                ForEach(store.myRaces) { race in
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(race.raceName)
+                                    .font(.headline)
+                                Text(
+                                    "\(race.runnerName) · \(race.targetDistanceMiles.formatted(.number.precision(.fractionLength(0...2)))) miles"
+                                )
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(statusLabel(race.status))
+                                .font(.caption2.weight(.black))
+                                .foregroundStyle(statusColor(race.status))
+                        }
+                        Label(
+                            race.isPrivate ? "Private" : "Public",
+                            systemImage: race.isPrivate ? "lock.fill" : "globe.americas.fill"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                        Button {
+                            Task { await store.openMyRace(race) }
+                        } label: {
+                            Label(
+                                race.status == "ended" ? "View result" : "Open race",
+                                systemImage: race.status == "ended" ? "checkmark.circle.fill" : "arrow.right.circle.fill"
+                            )
+                            .font(.subheadline.weight(.bold))
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color(red: 0.08, green: 0.10, blue: 0.16))
+                        .disabled(store.isWorking)
+                    }
+                    .padding(14)
+                    .background(
+                        Color(red: 0.95, green: 0.95, blue: 0.93),
+                        in: RoundedRectangle(cornerRadius: 15)
+                    )
+                }
+            }
+
+            if store.isLoadingMyRaces {
+                ProgressView().frame(maxWidth: .infinity)
+            }
+        }
+        .portalCard()
+        .task(id: store.user?.uid) {
+            if store.isCreatorSignedIn {
+                await store.loadMyRaces()
+            }
+        }
+    }
+
+    private func statusLabel(_ status: String) -> String {
+        switch status {
+        case "live": "LIVE"
+        case "paused": "PAUSED"
+        case "ended": "FINISHED"
+        default: "READY"
+        }
+    }
+
+    private func statusColor(_ status: String) -> Color {
+        switch status {
+        case "live": .red
+        case "ended": .green
+        default: .secondary
+        }
+    }
 }
 
 private struct JoinFlow: View {
@@ -497,7 +619,9 @@ private struct ConnectedRaceView: View {
                             symbol: "arrow.right"
                         )
                     }
-                    Button("Back") { store.leaveRace() }
+                    Button(race.isOwner ? "My races" : "Back") {
+                        store.leaveRace(preserveSession: race.isOwner)
+                    }
                         .foregroundStyle(.secondary)
                 }
                 .padding(24)

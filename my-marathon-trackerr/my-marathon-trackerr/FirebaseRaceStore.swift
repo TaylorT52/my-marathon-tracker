@@ -25,6 +25,16 @@ struct PublicRace: Identifiable, Equatable {
     let ownerId: String
 }
 
+struct MyRace: Identifiable, Equatable {
+    let id: String
+    let raceName: String
+    let runnerName: String
+    let targetDistanceMiles: Double
+    let isPrivate: Bool
+    let status: String
+    let createdAt: Date
+}
+
 struct ActiveRaceSession: Codable, Equatable {
     let raceId: String
     let userId: String
@@ -59,7 +69,9 @@ final class FirebaseRaceStore: ObservableObject {
     @Published private(set) var user: User?
     @Published private(set) var activeRace: ConnectedRace?
     @Published private(set) var publicRaces: [PublicRace] = []
+    @Published private(set) var myRaces: [MyRace] = []
     @Published private(set) var isLoadingPublicRaces = false
+    @Published private(set) var isLoadingMyRaces = false
     @Published private(set) var isWorking = false
     @Published private(set) var isRestoringRace = false
     @Published private(set) var canRetryRaceRecovery = false
@@ -134,6 +146,7 @@ final class FirebaseRaceStore: ObservableObject {
             sessionStore.clear()
             try auth.signOut()
             activeRace = nil
+            myRaces = []
             canRetryRaceRecovery = false
         } catch {
             errorMessage = error.localizedDescription
@@ -264,6 +277,52 @@ final class FirebaseRaceStore: ObservableObject {
         }
     }
 
+    func loadMyRaces() async {
+        guard let user = auth.currentUser, !user.isAnonymous else {
+            myRaces = []
+            return
+        }
+        isLoadingMyRaces = true
+        defer { isLoadingMyRaces = false }
+
+        do {
+            let snapshot = try await database
+                .collection("races")
+                .whereField("ownerId", isEqualTo: user.uid)
+                .limit(to: 50)
+                .getDocuments()
+
+            myRaces = snapshot.documents
+                .compactMap(myRace(from:))
+                .sorted { $0.createdAt > $1.createdAt }
+        } catch {
+            alertTitle = "Couldn’t load your races"
+            errorMessage = userFacingMessage(for: error as NSError)
+        }
+    }
+
+    func openMyRace(_ race: MyRace) async {
+        await perform {
+            guard let user = self.auth.currentUser, !user.isAnonymous else {
+                throw RaceStoreError.creatorAccountRequired
+            }
+            let snapshot = try await self.database
+                .collection("races")
+                .document(race.id)
+                .getDocument()
+            guard snapshot.data()?["ownerId"] as? String == user.uid else {
+                throw RaceStoreError.raceUnavailable
+            }
+            self.activeRace = try self.connectedRace(
+                from: snapshot,
+                passcode: nil,
+                isOwner: true,
+                wasRestored: true
+            )
+            self.saveActiveRace(raceId: race.id, userId: user.uid)
+        }
+    }
+
     func joinPublicRace(_ race: PublicRace) async {
         await perform {
             let user = try await self.spectatorUser()
@@ -288,8 +347,10 @@ final class FirebaseRaceStore: ObservableObject {
         }
     }
 
-    func leaveRace() {
-        sessionStore.clear()
+    func leaveRace(preserveSession: Bool = false) {
+        if !preserveSession {
+            sessionStore.clear()
+        }
         activeRace = nil
         canRetryRaceRecovery = false
     }
@@ -373,6 +434,9 @@ final class FirebaseRaceStore: ObservableObject {
 
     private func handleAuthChange(_ user: User?) async {
         self.user = user
+        if user == nil || user?.isAnonymous == true {
+            myRaces = []
+        }
         guard let session = sessionStore.load() else {
             isRestoringRace = false
             canRetryRaceRecovery = false
@@ -458,6 +522,25 @@ final class FirebaseRaceStore: ObservableObject {
             targetDistanceMiles: distance.doubleValue,
             status: data["status"] as? String ?? "setup",
             ownerId: ownerId
+        )
+    }
+
+    private func myRace(from snapshot: QueryDocumentSnapshot) -> MyRace? {
+        let data = snapshot.data()
+        guard let raceName = data["raceName"] as? String,
+              let runnerName = data["runnerName"] as? String,
+              let distance = data["targetDistanceMiles"] as? NSNumber,
+              let isPrivate = data["isPrivate"] as? Bool else {
+            return nil
+        }
+        return MyRace(
+            id: snapshot.documentID,
+            raceName: raceName,
+            runnerName: runnerName,
+            targetDistanceMiles: distance.doubleValue,
+            isPrivate: isPrivate,
+            status: data["status"] as? String ?? "setup",
+            createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? .distantPast
         )
     }
 
