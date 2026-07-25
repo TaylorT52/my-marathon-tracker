@@ -1,6 +1,7 @@
 import CoreLocation
 import FirebaseFirestore
 import MapKit
+import Network
 import SwiftUI
 
 private enum AppTheme {
@@ -118,6 +119,48 @@ enum RaceMath {
     }
 }
 
+enum RaceSyncHealth: Equatable {
+    case waiting
+    case live
+    case delayed
+    case stale
+    case offline
+    case cached
+    case finished
+}
+
+enum RaceSync {
+    static let delayedAfter: TimeInterval = 30
+    static let staleAfter: TimeInterval = 90
+
+    static func health(
+        now: Date,
+        lastUpdated: Date,
+        hasLocation: Bool,
+        isFinished: Bool,
+        isOnline: Bool,
+        isCached: Bool
+    ) -> RaceSyncHealth {
+        if isFinished { return .finished }
+        if !isOnline { return .offline }
+        if isCached { return .cached }
+        guard hasLocation else { return .waiting }
+        let age = max(0, now.timeIntervalSince(lastUpdated))
+        if age > staleAfter { return .stale }
+        if age > delayedAfter { return .delayed }
+        return .live
+    }
+
+    static func ageText(now: Date, lastUpdated: Date) -> String {
+        let seconds = max(0, Int(now.timeIntervalSince(lastUpdated)))
+        if seconds < 5 { return "just now" }
+        if seconds < 60 { return "\(seconds)s ago" }
+        let minutes = seconds / 60
+        if minutes < 60 { return "\(minutes)m ago" }
+        return "\(minutes / 60)h \(minutes % 60)m ago"
+    }
+}
+
 @MainActor
 final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var isRunnerMode = false
@@ -142,6 +185,9 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
     @Published private(set) var isFinished = false
     @Published private(set) var rollingPaceSeconds: TimeInterval = 0
     @Published private(set) var isForcingUpdate = false
+    @Published private(set) var isNetworkAvailable = true
+    @Published private(set) var isStateFromCache = false
+    @Published private(set) var areUpdatesFromCache = false
 
     private(set) var connectedRaceId: String?
     private(set) var isConnectedRace = false
@@ -161,6 +207,8 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
     ]
 
     private let locationManager = CLLocationManager()
+    private let networkMonitor = NWPathMonitor()
+    private let networkQueue = DispatchQueue(label: "app.runalong.connectivity")
     private var previousLocation: CLLocation?
     private var trackingStart: Date?
     private var elapsedAtStart: TimeInterval = 0
@@ -177,6 +225,7 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
     override init() {
         super.init()
         configureLocationManager()
+        startNetworkMonitoring()
         updateAuthorizationLabel(locationManager.authorizationStatus)
     }
 
@@ -200,14 +249,39 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
             : (connectedRace.isOwner ? "Ready to start live GPS" : "Waiting for the runner")
         shouldRestoreRunnerTracking = connectedRace.wasRestored && connectedRace.isOwner
         configureLocationManager()
+        startNetworkMonitoring()
         updateAuthorizationLabel(locationManager.authorizationStatus)
         startLiveListeners()
+        if !connectedRace.isOwner {
+            PushNotificationManager.shared.subscribe(to: connectedRace.id)
+        }
     }
 
     deinit {
         stateListener?.remove()
         updatesListener?.remove()
         publishTimer?.invalidate()
+        networkMonitor.cancel()
+    }
+
+    var isShowingCachedData: Bool {
+        isStateFromCache || areUpdatesFromCache
+    }
+
+    func syncHealth(at now: Date) -> RaceSyncHealth {
+        RaceSync.health(
+            now: now,
+            lastUpdated: lastUpdated,
+            hasLocation: hasLiveLocation,
+            isFinished: isFinished,
+            isOnline: isNetworkAvailable,
+            isCached: !isOwner && isShowingCachedData
+        )
+    }
+
+    func lastUpdateAgeText(at now: Date) -> String {
+        guard hasLiveLocation else { return "no GPS yet" }
+        return RaceSync.ageText(now: now, lastUpdated: lastUpdated)
     }
 
     private func configureLocationManager() {
@@ -216,6 +290,28 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.distanceFilter = 8
         locationManager.pausesLocationUpdatesAutomatically = false
+    }
+
+    private func startNetworkMonitoring() {
+        networkMonitor.pathUpdateHandler = { [weak self] path in
+            let isOnline = path.status == .satisfied
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let reconnected = !self.isNetworkAvailable && isOnline
+                self.isNetworkAvailable = isOnline
+                if !isOnline {
+                    self.locationStatus = self.isOwner
+                        ? "Offline — GPS continues locally; viewers may see an older position."
+                        : "Offline — showing the last saved race data."
+                } else if reconnected {
+                    self.locationStatus = "Back online — syncing the latest race data…"
+                    if self.isOwner, self.hasLiveLocation {
+                        Task { await self.publishCurrentState(force: true) }
+                    }
+                }
+            }
+        }
+        networkMonitor.start(queue: networkQueue)
     }
 
     var paceSeconds: TimeInterval {
@@ -489,13 +585,14 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
         let raceRef = Firestore.firestore().collection("races").document(connectedRaceId)
 
         stateListener = raceRef.collection("state").document("latest")
-            .addSnapshotListener { [weak self] snapshot, error in
+            .addSnapshotListener(includeMetadataChanges: true) { [weak self] snapshot, error in
                 Task { @MainActor [weak self] in
                     guard let self else { return }
                     if let error {
                         self.locationStatus = "Live sync error: \(error.localizedDescription)"
                         return
                     }
+                    self.isStateFromCache = snapshot?.metadata.isFromCache ?? false
                     if let data = snapshot?.data() {
                         self.applyRemoteState(data)
                     }
@@ -505,13 +602,14 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
         updatesListener = raceRef.collection("updates")
             .order(by: "sentAt", descending: true)
             .limit(to: 20)
-            .addSnapshotListener { [weak self] snapshot, error in
+            .addSnapshotListener(includeMetadataChanges: true) { [weak self] snapshot, error in
                 Task { @MainActor [weak self] in
                     guard let self else { return }
                     if let error {
                         self.locationStatus = "Updates sync error: \(error.localizedDescription)"
                         return
                     }
+                    self.areUpdatesFromCache = snapshot?.metadata.isFromCache ?? false
                     self.applyRemoteUpdates(snapshot?.documents ?? [])
                 }
             }
@@ -608,6 +706,8 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
                 applyRemoteState(data)
             }
             applyRemoteUpdates(latestUpdates.documents)
+            isStateFromCache = false
+            areUpdatesFromCache = false
             locationStatus = isFinished ? "Final result refreshed" : "Updated from server"
         } catch {
             locationStatus = "Refresh failed: \(error.localizedDescription)"
@@ -616,6 +716,10 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
 
     private func publishCurrentState(force: Bool) async {
         guard let connectedRaceId, isOwner, hasLiveLocation else { return }
+        guard isNetworkAvailable else {
+            locationStatus = "Offline — GPS continues locally; viewers may see an older position."
+            return
+        }
         if !force, let lastPublishedAt,
            Date().timeIntervalSince(lastPublishedAt) < 10 {
             return
@@ -726,6 +830,7 @@ struct ContentView: View {
                     LazyVStack(spacing: 18) {
                         raceHeader
                         liveMap
+                        syncStatusBanner
                         raceStats
                         courseProgress
                         updatesCard
@@ -850,28 +955,27 @@ struct ContentView: View {
         .frame(height: 320)
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
         .overlay(alignment: .topLeading) {
-            HStack(spacing: 7) {
-                Circle()
-                    .fill(race.isFinished ? AppTheme.ink : (race.isTracking ? AppTheme.mint : AppTheme.orange))
-                    .frame(width: 8, height: 8)
-                Text(
-                    race.isFinished
-                        ? "FINISHED"
-                        : (
-                            race.isTracking
-                                ? "LIVE GPS"
-                                : (race.isConnectedRace ? "WAITING FOR GPS" : "DEMO LIVE")
-                        )
-                )
-                    .font(.caption2.weight(.black))
-                    .tracking(0.8)
-                Text("· \(race.lastUpdated.formatted(.relative(presentation: .numeric)))")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(AppTheme.muted)
+            TimelineView(.periodic(from: .now, by: 5)) { context in
+                let health = race.isConnectedRace
+                    ? race.syncHealth(at: context.date)
+                    : RaceSyncHealth.live
+                HStack(spacing: 7) {
+                    Circle()
+                        .fill(syncColor(for: health))
+                        .frame(width: 8, height: 8)
+                    Text(race.isConnectedRace ? syncTitle(for: health) : "DEMO LIVE")
+                        .font(.caption2.weight(.black))
+                        .tracking(0.8)
+                    if race.hasLiveLocation || !race.isConnectedRace {
+                        Text("· \(race.lastUpdateAgeText(at: context.date))")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(AppTheme.muted)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(.ultraThickMaterial, in: Capsule())
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
-            .background(.ultraThickMaterial, in: Capsule())
             .padding(14)
         }
         .overlay {
@@ -907,6 +1011,84 @@ struct ContentView: View {
             .foregroundStyle(AppTheme.ink)
             .padding(14)
             .accessibilityLabel("Center map on runner")
+        }
+    }
+
+    @ViewBuilder
+    private var syncStatusBanner: some View {
+        if race.isConnectedRace {
+            TimelineView(.periodic(from: .now, by: 5)) { context in
+                let health = race.syncHealth(at: context.date)
+                if let message = syncMessage(for: health, now: context.date) {
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: syncIcon(for: health))
+                            .font(.headline)
+                            .foregroundStyle(syncColor(for: health))
+                            .frame(width: 24)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(syncTitle(for: health))
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(AppTheme.ink)
+                            Text(message)
+                                .font(.caption)
+                                .foregroundStyle(AppTheme.muted)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(14)
+                    .background(syncColor(for: health).opacity(0.10), in: RoundedRectangle(cornerRadius: 16))
+                }
+            }
+        }
+    }
+
+    private func syncTitle(for health: RaceSyncHealth) -> String {
+        switch health {
+        case .waiting: "WAITING FOR GPS"
+        case .live: "LIVE GPS"
+        case .delayed: "GPS DELAYED"
+        case .stale: "STALE LOCATION"
+        case .offline: "OFFLINE"
+        case .cached: "CACHED DATA"
+        case .finished: "FINISHED"
+        }
+    }
+
+    private func syncIcon(for health: RaceSyncHealth) -> String {
+        switch health {
+        case .offline: "wifi.slash"
+        case .cached: "externaldrive.fill"
+        case .delayed, .stale: "clock.badge.exclamationmark"
+        case .waiting: "location.slash"
+        case .live: "location.fill"
+        case .finished: "flag.checkered"
+        }
+    }
+
+    private func syncColor(for health: RaceSyncHealth) -> Color {
+        switch health {
+        case .live: AppTheme.mint
+        case .finished: AppTheme.ink
+        case .waiting, .cached, .delayed: AppTheme.orange
+        case .stale, .offline: .red
+        }
+    }
+
+    private func syncMessage(for health: RaceSyncHealth, now: Date) -> String? {
+        let age = race.lastUpdateAgeText(at: now)
+        switch health {
+        case .offline:
+            return race.isOwner
+                ? "No service. GPS is still recording on this device and the latest position will sync when service returns."
+                : "No service. You’re seeing saved data; the last GPS update was \(age)."
+        case .cached:
+            return "Firestore is showing cached data while it reconnects. The last GPS update was \(age)."
+        case .delayed:
+            return "The runner’s last GPS update was \(age). A weak connection can briefly delay the map."
+        case .stale:
+            return "The runner’s location has not updated for \(age). Keep this page open; it will recover automatically."
+        default:
+            return nil
         }
     }
 
@@ -1082,7 +1264,7 @@ struct ContentView: View {
                 .tint(AppTheme.ink)
                 .disabled(race.isForcingUpdate)
 
-                ShareLink(item: "Follow \(race.runnerName) at https://runalong.app/race/\(race.shareCode.lowercased())") {
+                ShareLink(item: spectatorInvitation) {
                     Label("Invite another cheerleader", systemImage: "square.and.arrow.up")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
@@ -1100,6 +1282,13 @@ struct ContentView: View {
                 .foregroundStyle(AppTheme.muted)
                 .padding(.horizontal)
         }
+    }
+
+    private var spectatorInvitation: String {
+        guard let raceId = race.connectedRaceId else {
+            return "Follow \(race.runnerName) live in RunAlong"
+        }
+        return "Follow \(race.runnerName) live: \(RunAlongLinks.race(raceId))"
     }
 }
 

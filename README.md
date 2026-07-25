@@ -13,13 +13,16 @@ supports common race presets and any custom target distance.
 - 5K, 10K, 15K, 10-mile, half marathon, marathon, 50K, and custom distances
 - A short race-update composer and share link
 - Location permission and background-location configuration
-- Unit tests for pace and finish projections
+- Offline, Firestore-cache, delayed-GPS, and stale-location warnings
+- A no-install website for public and passcode-protected race viewing
+- FCM registration and trusted start/message/finish notification triggers
+- Unit tests for pace, finish projections, and sync health
 
 The initial screen intentionally contains demo data. Open race settings, turn on
 **I'm the runner**, then tap **Start live tracking** to clear the demo progress
 and begin a real GPS session.
 
-## Recommended race-day architecture
+## Race-day architecture
 
 ```text
 Runner iPhone
@@ -34,27 +37,19 @@ Realtime backend (Supabase or Firebase)
        +----> push notifications for runner updates
 ```
 
-For a Sunday launch, the spectator experience should be a private web link. It
-avoids App Store review and asking every guest to install an app. The native iOS
-app can remain the runner's GPS publisher.
+The iOS app publishes the latest race state to Firestore. Joined spectators can
+watch from either the app or the public website; private pages require the same
+8-character passcode as the app.
 
-Store only the latest location plus a low-frequency breadcrumb trail. Protect a
-race with a random, unguessable share token, expire access after the race, and
-never put backend service keys or Strava secrets in the iOS app.
-
-Suggested backend records:
-
-- `races`: runner, name, start time, goal time, share token, status
-- `race_locations`: race, latitude, longitude, accuracy, distance, elapsed time,
-  recorded time
-- `race_updates`: race, message, mile, posted time
-- `followers`: race, notification token or opted-in phone number
+The hosted spectator site is
+<https://runalong-live.fehguy.chatgpt.site>. App invitations open the exact race
+there, so friends can watch without installing RunAlong.
 
 ## Backend testing status
 
 Firebase Authentication, secure race creation, anonymous passcode joining,
-and Firestore membership rules are scaffolded in the repository. This version
-works on Firebase's free Spark plan and does not require Cloud Functions.
+and Firestore membership rules are included and deployed. Live tracking and the
+website work on Firebase's free Spark plan.
 Runner GPS state and short race updates sync through Firestore snapshot
 listeners so joined spectators receive location, distance, pace, and finish
 estimate changes without refreshing.
@@ -103,28 +98,26 @@ only the runner can publish; stale/out-of-order GPS points are rejected; a
 spectator reconnect receives the latest state; and a completed or expired race
 no longer accepts locations.
 
-## Strava
+## Push notification activation
 
-Strava should be treated as an optional after-race sync. Its public API exposes
-activities and activity streams after upload, and its webhook events notify apps
-when an activity is created or changed. It does not expose Strava Beacon as a
-general-purpose live location API.
+The app registers spectator FCM tokens, and `functions/index.js` contains
+Firestore triggers for race start, runner message, and race finish. Production
+Cloud Functions deployment requires Firebase's Blaze plan, so the functions are
+kept undeployed while this project remains on Spark.
 
-If Strava sync is added later:
+To turn automatic push delivery on:
 
-1. Perform OAuth and token refresh on the backend.
-2. Store refresh tokens encrypted on the backend, never in the client.
-3. Use the activity webhook to discover the finished run.
-4. Fetch the completed activity/streams and link or reconcile them with the race.
+1. Upload an APNs authentication key under Firebase Console → Project settings
+   → Cloud Messaging.
+2. Upgrade the Firebase project to Blaze and set a conservative budget alert.
+3. Run `npx firebase-tools deploy --only functions`.
+4. Test on physical iPhones; APNs behavior in Simulator is not a production test.
 
 ## Before relying on it during a race
 
-- Replace the sample course coordinates with the official GPX route.
-- Add the realtime backend and spectator web page.
 - Test background tracking on a physical iPhone for at least 90 minutes.
 - Test with Low Power Mode and intermittent cellular coverage.
 - Use a battery pack and keep Strava plus RunAlong running during the test.
-- Add a stale-location warning when the last GPS update is over 60 seconds old.
 - If sending SMS, collect explicit opt-in and use a server-side provider such as
   Twilio. In-app updates and push notifications are simpler for the first release.
 

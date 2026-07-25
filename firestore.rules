@@ -79,7 +79,6 @@ service cloud.firestore {
               request.resource.data.keys().hasOnly(["role", "joinedAt"])
               && request.resource.data.role == "spectator"
               && raceAfter(raceId).data.isPrivate == false
-              && raceAfter(raceId).data.status != "ended"
             )
             ||
             (
@@ -89,10 +88,17 @@ service cloud.firestore {
               && request.resource.data.inviteHash.size() == 64
               && get(/databases/$(database)/documents/raceInvites/$(request.resource.data.inviteHash)).data.raceId == raceId
               && get(/databases/$(database)/documents/raceInvites/$(request.resource.data.inviteHash)).data.expiresAt > request.time
-              && raceAfter(raceId).data.status != "ended"
             )
           );
-        allow update, delete: if false;
+        allow update: if signedIn()
+          && userId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(["pushToken", "notificationsEnabled"])
+          && request.resource.data.pushToken is string
+          && request.resource.data.pushToken.size() > 0
+          && request.resource.data.pushToken.size() <= 4096
+          && request.resource.data.notificationsEnabled is bool;
+        allow delete: if false;
       }
 
       match /state/{stateId} {

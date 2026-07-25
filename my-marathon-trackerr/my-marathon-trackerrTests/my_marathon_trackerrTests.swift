@@ -120,4 +120,50 @@ final class my_marathon_trackerrTests: XCTestCase {
         )
         XCTAssertEqual(finish!.timeIntervalSince(start), 6_000, accuracy: 0.1)
     }
+
+    func testSyncHealthMarksOldLocationsStale() {
+        let now = Date(timeIntervalSince1970: 1_000)
+
+        XCTAssertEqual(
+            RaceSync.health(
+                now: now,
+                lastUpdated: now.addingTimeInterval(-91),
+                hasLocation: true,
+                isFinished: false,
+                isOnline: true,
+                isCached: false
+            ),
+            .stale
+        )
+        XCTAssertEqual(
+            RaceSync.ageText(now: now, lastUpdated: now.addingTimeInterval(-125)),
+            "2m ago"
+        )
+    }
+
+    func testOfflineAndCachedStatusesTakePriority() {
+        let now = Date()
+        XCTAssertEqual(
+            RaceSync.health(
+                now: now,
+                lastUpdated: now,
+                hasLocation: true,
+                isFinished: false,
+                isOnline: false,
+                isCached: false
+            ),
+            .offline
+        )
+        XCTAssertEqual(
+            RaceSync.health(
+                now: now,
+                lastUpdated: now,
+                hasLocation: true,
+                isFinished: false,
+                isOnline: true,
+                isCached: true
+            ),
+            .cached
+        )
+    }
 }

@@ -4,6 +4,18 @@ import FirebaseFirestore
 import Foundation
 import Security
 
+enum RunAlongLinks {
+    static let spectatorSite = "https://runalong-live.fehguy.chatgpt.site"
+
+    static func race(_ raceId: String) -> String {
+        guard var components = URLComponents(string: spectatorSite) else {
+            return spectatorSite
+        }
+        components.queryItems = [URLQueryItem(name: "race", value: raceId)]
+        return components.url?.absoluteString ?? spectatorSite
+    }
+}
+
 struct ConnectedRace: Identifiable, Equatable {
     let id: String
     let raceName: String

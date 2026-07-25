@@ -16,6 +16,7 @@ const {
   serverTimestamp,
   setDoc,
   Timestamp,
+  updateDoc,
   where,
 } = require("firebase/firestore");
 const {after, before, beforeEach, describe, it} = require("mocha");
@@ -172,6 +173,33 @@ describe("RunAlong spectator access", () => {
       throw new Error("Returning viewer lost the spectator role.");
     }
     await assertSucceeds(getDoc(doc(spectator, "races", raceId)));
+  });
+
+  it("lets spectators register only their own push token", async () => {
+    const spectator = spectatorDatabase();
+    const memberRef = doc(
+        spectator,
+        "races",
+        raceId,
+        "members",
+        "spectator",
+    );
+    await assertSucceeds(updateDoc(memberRef, {
+      pushToken: "test-fcm-token",
+      notificationsEnabled: true,
+    }));
+    await assertFails(updateDoc(memberRef, {
+      role: "runner",
+    }));
+
+    const outsider = outsiderDatabase();
+    await assertFails(updateDoc(
+        doc(outsider, "races", raceId, "members", "spectator"),
+        {
+          pushToken: "stolen-token",
+          notificationsEnabled: true,
+        },
+    ));
   });
 
   it("lets a creator list public and private races they own", async () => {

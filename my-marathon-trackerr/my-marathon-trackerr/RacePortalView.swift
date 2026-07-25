@@ -587,7 +587,9 @@ private struct ConnectedRaceView: View {
                         .padding(22)
                         .background(.white, in: RoundedRectangle(cornerRadius: 22))
 
-                        ShareLink(item: "Follow \(race.runnerName)’s race in RunAlong with passcode \(passcode)") {
+                        ShareLink(
+                            item: "Follow \(race.runnerName)’s race live: \(RunAlongLinks.race(race.id))\nPasscode: \(passcode)"
+                        ) {
                             Label("Share invitation", systemImage: "square.and.arrow.up")
                         }
                         .buttonStyle(.bordered)
@@ -605,7 +607,9 @@ private struct ConnectedRaceView: View {
                         .padding(22)
                         .background(.white, in: RoundedRectangle(cornerRadius: 22))
 
-                        ShareLink(item: "Watch \(race.runnerName) in “\(race.raceName)” under Public races in RunAlong.") {
+                        ShareLink(
+                            item: "Watch \(race.runnerName) in “\(race.raceName)” live: \(RunAlongLinks.race(race.id))"
+                        ) {
                             Label("Share race", systemImage: "square.and.arrow.up")
                         }
                         .buttonStyle(.bordered)

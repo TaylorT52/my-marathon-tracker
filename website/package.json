@@ -1,0 +1,33 @@
+{
+  "name": "runalong-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vinext dev",
+    "build": "vite build && node scripts/build-sites.mjs && cp -R .openai dist/.openai",
+    "start": "vinext start",
+    "lint": "vinext lint"
+  },
+  "dependencies": {
+    "firebase": "^12.0.0",
+    "next": "^16.2.11",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^6.0.4",
+    "@vitejs/plugin-rsc": "^0.5.30",
+    "react-server-dom-webpack": "^19.2.8",
+    "typescript": "^5.8.3",
+    "vinext": "^1.0.0-beta.4",
+    "vite": "^8.1.5"
+  },
+  "overrides": {
+    "postcss": "8.5.23",
+    "sharp": "0.35.3"
+  }
+}
