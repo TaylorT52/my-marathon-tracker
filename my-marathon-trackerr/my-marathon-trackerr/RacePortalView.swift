@@ -390,8 +390,8 @@ private struct MyRacesFlow: View {
                 get: { racePendingDeletion != nil },
                 set: { if !$0 { racePendingDeletion = nil } }
             ),
-            presenting: racePendingDeletion,
-            titleVisibility: .visible
+            titleVisibility: .visible,
+            presenting: racePendingDeletion
         ) { race in
             Button("Delete “\(race.raceName)”", role: .destructive) {
                 racePendingDeletion = nil
