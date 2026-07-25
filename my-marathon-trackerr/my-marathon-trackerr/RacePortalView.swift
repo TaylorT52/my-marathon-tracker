@@ -45,6 +45,7 @@ struct RacePortalView: View {
                                 } else {
                                     MyRacesFlow(store: store)
                                 }
+                                legalLinks
                             }
                             .padding(20)
                         }
@@ -105,6 +106,16 @@ struct RacePortalView: View {
         }
         .padding(.top, 24)
     }
+
+    private var legalLinks: some View {
+        HStack(spacing: 18) {
+            Link("Privacy", destination: RunAlongLinks.privacy)
+            Link("Support", destination: RunAlongLinks.support)
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .padding(.bottom, 16)
+    }
 }
 
 private enum PortalMode: String, CaseIterable, Identifiable {
@@ -131,6 +142,7 @@ private struct CreatorFlow: View {
     @State private var distancePreset = RaceDistancePreset.fiveK
     @State private var customDistance = 3.1
     @State private var isPrivateRace = true
+    @State private var showDeleteAccountConfirmation = false
     @FocusState private var focusedField: CreatorField?
 
     var body: some View {
@@ -140,6 +152,18 @@ private struct CreatorFlow: View {
             } else {
                 signInCard
             }
+        }
+        .confirmationDialog(
+            "Delete your RunAlong account?",
+            isPresented: $showDeleteAccountConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete account and all races", role: .destructive) {
+                Task { await store.deleteAccount() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes your creator account, races, locations, messages, memberships, and private invitations. This cannot be undone.")
         }
     }
 
@@ -281,6 +305,14 @@ private struct CreatorFlow: View {
             if store.isWorking {
                 ProgressView().frame(maxWidth: .infinity)
             }
+
+            Divider()
+            Button("Delete account", role: .destructive) {
+                showDeleteAccountConfirmation = true
+            }
+            .font(.caption.weight(.semibold))
+            .frame(maxWidth: .infinity)
+            .disabled(store.isWorking)
         }
         .portalCard()
     }
@@ -296,6 +328,7 @@ private enum CreatorField: Hashable {
 
 private struct MyRacesFlow: View {
     @ObservedObject var store: FirebaseRaceStore
+    @State private var racePendingDeletion: MyRace?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -328,47 +361,15 @@ private struct MyRacesFlow: View {
                 )
             } else {
                 ForEach(store.myRaces) { race in
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(race.raceName)
-                                    .font(.headline)
-                                Text(
-                                    "\(race.runnerName) · \(race.targetDistanceMiles.formatted(.number.precision(.fractionLength(0...2)))) miles"
-                                )
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Text(statusLabel(race.status))
-                                .font(.caption2.weight(.black))
-                                .foregroundStyle(statusColor(race.status))
-                        }
-                        Label(
-                            race.isPrivate ? "Private" : "Public",
-                            systemImage: race.isPrivate ? "lock.fill" : "globe.americas.fill"
-                        )
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                        Button {
+                    MyRaceRow(
+                        race: race,
+                        isWorking: store.isWorking,
+                        open: {
                             Task { await store.openMyRace(race) }
-                        } label: {
-                            Label(
-                                race.status == "ended" ? "View result" : "Open race",
-                                systemImage: race.status == "ended" ? "checkmark.circle.fill" : "arrow.right.circle.fill"
-                            )
-                            .font(.subheadline.weight(.bold))
-                            .frame(maxWidth: .infinity)
+                        },
+                        requestDeletion: {
+                            racePendingDeletion = race
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Color(red: 0.08, green: 0.10, blue: 0.16))
-                        .disabled(store.isWorking)
-                    }
-                    .padding(14)
-                    .background(
-                        Color(red: 0.95, green: 0.95, blue: 0.93),
-                        in: RoundedRectangle(cornerRadius: 15)
                     )
                 }
             }
@@ -383,10 +384,95 @@ private struct MyRacesFlow: View {
                 await store.loadMyRaces()
             }
         }
+        .confirmationDialog(
+            "Delete this race?",
+            isPresented: Binding(
+                get: { racePendingDeletion != nil },
+                set: { if !$0 { racePendingDeletion = nil } }
+            ),
+            presenting: racePendingDeletion,
+            titleVisibility: .visible
+        ) { race in
+            Button("Delete “\(race.raceName)”", role: .destructive) {
+                racePendingDeletion = nil
+                Task { await store.deleteRace(race) }
+            }
+            Button("Cancel", role: .cancel) {
+                racePendingDeletion = nil
+            }
+        } message: { _ in
+            Text("This permanently deletes the race, live locations, messages, spectators, and private invitation.")
+        }
     }
 
-    private func statusLabel(_ status: String) -> String {
-        switch status {
+}
+
+private struct MyRaceRow: View {
+    let race: MyRace
+    let isWorking: Bool
+    let open: () -> Void
+    let requestDeletion: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(race.raceName)
+                        .font(.headline)
+                    Text(raceDetails)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(statusLabel)
+                    .font(.caption2.weight(.black))
+                    .foregroundStyle(statusColor)
+            }
+            Label(
+                race.isPrivate ? "Private" : "Public",
+                systemImage: race.isPrivate ? "lock.fill" : "globe.americas.fill"
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+            Button(action: open) {
+                Label(openTitle, systemImage: openSymbol)
+                    .font(.subheadline.weight(.bold))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color(red: 0.08, green: 0.10, blue: 0.16))
+            .disabled(isWorking)
+
+            Button("Delete race", role: .destructive, action: requestDeletion)
+                .font(.caption.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .disabled(isWorking)
+        }
+        .padding(14)
+        .background(
+            Color(red: 0.95, green: 0.95, blue: 0.93),
+            in: RoundedRectangle(cornerRadius: 15)
+        )
+    }
+
+    private var raceDetails: String {
+        let distance = race.targetDistanceMiles.formatted(
+            .number.precision(.fractionLength(0...2))
+        )
+        return "\(race.runnerName) · \(distance) miles"
+    }
+
+    private var openTitle: String {
+        race.status == "ended" ? "View result" : "Open race"
+    }
+
+    private var openSymbol: String {
+        race.status == "ended" ? "checkmark.circle.fill" : "arrow.right.circle.fill"
+    }
+
+    private var statusLabel: String {
+        switch race.status {
         case "live": "LIVE"
         case "paused": "PAUSED"
         case "ended": "FINISHED"
@@ -394,8 +480,8 @@ private struct MyRacesFlow: View {
         }
     }
 
-    private func statusColor(_ status: String) -> Color {
-        switch status {
+    private var statusColor: Color {
+        switch race.status {
         case "live": .red
         case "ended": .green
         default: .secondary

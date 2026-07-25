@@ -369,7 +369,10 @@ export default function RaceTracker({raceId}: {raceId: string}) {
           </article>
         ))}
       </section>
-      <footer>Location, pace, and finish time are estimates. GPS and course conditions can cause delays.</footer>
+      <footer>
+        <p>Location, pace, and finish time are estimates. GPS and course conditions can cause delays.</p>
+        <p><a href="/privacy">Privacy</a> · <a href="/support">Support</a></p>
+      </footer>
     </main>
   );
 }

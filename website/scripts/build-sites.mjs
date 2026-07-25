@@ -28,7 +28,7 @@ const html = ${JSON.stringify(html)};
 export default {
   async fetch(request) {
     const url = new URL(request.url);
-    if (url.pathname !== "/") {
+    if (!["/", "/privacy", "/support"].includes(url.pathname)) {
       return new Response("Not found", {status: 404});
     }
     return new Response(html, {

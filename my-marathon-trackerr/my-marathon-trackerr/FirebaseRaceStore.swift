@@ -6,6 +6,8 @@ import Security
 
 enum RunAlongLinks {
     static let spectatorSite = "https://runalong-live.fehguy.chatgpt.site"
+    static let privacy = URL(string: "\(spectatorSite)/privacy")!
+    static let support = URL(string: "\(spectatorSite)/support")!
 
     static func race(_ raceId: String, passcode: String? = nil) -> String {
         guard var components = URLComponents(string: spectatorSite) else {
@@ -165,6 +167,45 @@ final class FirebaseRaceStore: ObservableObject {
             canRetryRaceRecovery = false
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    func deleteRace(_ race: MyRace) async {
+        await perform {
+            guard let user = self.auth.currentUser, !user.isAnonymous else {
+                throw RaceStoreError.creatorAccountRequired
+            }
+            try await self.deleteOwnedRace(raceId: race.id, ownerId: user.uid)
+            self.myRaces.removeAll { $0.id == race.id }
+            if self.activeRace?.id == race.id {
+                self.sessionStore.clear()
+                self.activeRace = nil
+            }
+        }
+    }
+
+    func deleteAccount() async {
+        await perform {
+            guard let user = self.auth.currentUser, !user.isAnonymous else {
+                throw RaceStoreError.creatorAccountRequired
+            }
+
+            let ownedRaces = try await self.database
+                .collection("races")
+                .whereField("ownerId", isEqualTo: user.uid)
+                .getDocuments()
+            for race in ownedRaces.documents {
+                try await self.deleteOwnedRace(
+                    raceId: race.documentID,
+                    ownerId: user.uid
+                )
+            }
+
+            try await user.delete()
+            self.sessionStore.clear()
+            self.activeRace = nil
+            self.myRaces = []
+            self.canRetryRaceRecovery = false
         }
     }
 
@@ -522,6 +563,41 @@ final class FirebaseRaceStore: ObservableObject {
         canRetryRaceRecovery = false
     }
 
+    private func deleteOwnedRace(raceId: String, ownerId: String) async throws {
+        let raceRef = database.collection("races").document(raceId)
+        let race = try await raceRef.getDocument()
+        guard race.data()?["ownerId"] as? String == ownerId else {
+            throw RaceStoreError.raceUnavailable
+        }
+
+        try await deleteDocuments(in: raceRef.collection("updates"))
+        try await deleteDocuments(in: raceRef.collection("state"))
+        try await deleteDocuments(in: raceRef.collection("members"))
+
+        let invites = try await database
+            .collection("raceInvites")
+            .whereField("ownerId", isEqualTo: ownerId)
+            .whereField("raceId", isEqualTo: raceId)
+            .getDocuments()
+        if !invites.documents.isEmpty {
+            let batch = database.batch()
+            invites.documents.forEach { batch.deleteDocument($0.reference) }
+            try await batch.commit()
+        }
+
+        try await raceRef.delete()
+    }
+
+    private func deleteDocuments(in collection: CollectionReference) async throws {
+        while true {
+            let snapshot = try await collection.limit(to: 400).getDocuments()
+            guard !snapshot.documents.isEmpty else { return }
+            let batch = database.batch()
+            snapshot.documents.forEach { batch.deleteDocument($0.reference) }
+            try await batch.commit()
+        }
+    }
+
     private func publicRace(from snapshot: QueryDocumentSnapshot) -> PublicRace? {
         let data = snapshot.data()
         guard let raceName = data["raceName"] as? String,
@@ -617,6 +693,8 @@ final class FirebaseRaceStore: ObservableObject {
                 return "Couldn’t reach Firebase. Check your internet connection and try again."
             case .userDisabled:
                 return "This account has been disabled."
+            case .requiresRecentLogin:
+                return "For security, sign out and sign back in, then try deleting your account again."
             default:
                 break
             }

@@ -1202,6 +1202,20 @@ struct ContentView: View {
                         .background(AppTheme.mint, in: RoundedRectangle(cornerRadius: 16))
                         .foregroundStyle(.white)
                 } else {
+                    Label {
+                        Text("Locking your screen is okay. Keep RunAlong running and don’t swipe it away during your race.")
+                    } icon: {
+                        Image(systemName: "location.fill.viewfinder")
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
+                    .background(
+                        AppTheme.orange.opacity(0.10),
+                        in: RoundedRectangle(cornerRadius: 16)
+                    )
+
                     Button { race.toggleTracking() } label: {
                         Label(
                             race.isTracking ? "Pause live tracking" : "Start live tracking",

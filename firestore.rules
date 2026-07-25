@@ -91,7 +91,7 @@ service cloud.firestore {
             )
           );
         allow update: if false;
-        allow delete: if false;
+        allow delete: if isOwner(raceId);
       }
 
       match /state/{stateId} {
@@ -185,7 +185,8 @@ service cloud.firestore {
 
     match /raceInvites/{inviteHash} {
       allow get: if signedIn();
-      allow list: if false;
+      allow list: if permanentUser()
+        && resource.data.ownerId == request.auth.uid;
       allow create: if permanentUser()
         && inviteHash.size() == 64
         && request.resource.data.keys().hasOnly([

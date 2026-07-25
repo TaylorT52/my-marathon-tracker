@@ -8,6 +8,7 @@ const {
 const {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -243,5 +244,41 @@ describe("RunAlong spectator access", () => {
           joinedAt: serverTimestamp(),
         },
     ));
+  });
+
+  it("lets only the owner remove race data and private invitations", async () => {
+    const owner = ownerDatabase();
+    const outsider = outsiderDatabase();
+    const spectatorMember = doc(
+        owner,
+        "races",
+        raceId,
+        "members",
+        "spectator",
+    );
+
+    await assertFails(deleteDoc(doc(
+        outsider,
+        "races",
+        raceId,
+        "members",
+        "spectator",
+    )));
+    await assertSucceeds(deleteDoc(spectatorMember));
+
+    const invites = await assertSucceeds(getDocs(query(
+        collection(owner, "raceInvites"),
+        where("ownerId", "==", "owner"),
+        where("raceId", "==", privateRaceId),
+    )));
+    if (invites.size !== 1) {
+      throw new Error("Owner could not find the private race invitation.");
+    }
+    await assertSucceeds(deleteDoc(invites.docs[0].ref));
+
+    await assertFails(getDocs(query(
+        collection(outsider, "raceInvites"),
+        where("ownerId", "==", "owner"),
+    )));
   });
 });
