@@ -81,7 +81,7 @@ async function seedRace() {
     await setDoc(doc(database, "raceInvites", inviteHash), {
       raceId: privateRaceId,
       ownerId: "owner",
-      expiresAt: Timestamp.fromMillis(Date.now() + 60 * 60 * 1000),
+      expiresAt: Timestamp.fromMillis(Date.now() - 60 * 60 * 1000),
       createdAt: Timestamp.now(),
     });
   });
@@ -175,33 +175,6 @@ describe("RunAlong spectator access", () => {
     await assertSucceeds(getDoc(doc(spectator, "races", raceId)));
   });
 
-  it("lets spectators register only their own push token", async () => {
-    const spectator = spectatorDatabase();
-    const memberRef = doc(
-        spectator,
-        "races",
-        raceId,
-        "members",
-        "spectator",
-    );
-    await assertSucceeds(updateDoc(memberRef, {
-      pushToken: "test-fcm-token",
-      notificationsEnabled: true,
-    }));
-    await assertFails(updateDoc(memberRef, {
-      role: "runner",
-    }));
-
-    const outsider = outsiderDatabase();
-    await assertFails(updateDoc(
-        doc(outsider, "races", raceId, "members", "spectator"),
-        {
-          pushToken: "stolen-token",
-          notificationsEnabled: true,
-        },
-    ));
-  });
-
   it("lets a creator list public and private races they own", async () => {
     const owner = ownerDatabase();
     const ownedRaces = await assertSucceeds(getDocs(query(
@@ -219,7 +192,7 @@ describe("RunAlong spectator access", () => {
     )));
   });
 
-  it("joins a private race as a spectator, never as a runner", async () => {
+  it("keeps a private passcode valid until its race finishes", async () => {
     const spectator = spectatorDatabase();
     const memberRef = doc(
         spectator,
@@ -245,6 +218,28 @@ describe("RunAlong spectator access", () => {
         doc(outsider, "races", privateRaceId, "members", "outsider"),
         {
           role: "runner",
+          joinedAt: serverTimestamp(),
+        },
+    ));
+  });
+
+  it("blocks new private spectators after the runner finishes", async () => {
+    await assertSucceeds(updateDoc(
+        doc(ownerDatabase(), "races", privateRaceId),
+        {status: "ended"},
+    ));
+
+    await assertFails(setDoc(
+        doc(
+            outsiderDatabase(),
+            "races",
+            privateRaceId,
+            "members",
+            "outsider",
+        ),
+        {
+          role: "spectator",
+          inviteHash,
           joinedAt: serverTimestamp(),
         },
     ));

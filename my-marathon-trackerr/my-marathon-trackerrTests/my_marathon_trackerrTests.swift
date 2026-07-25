@@ -110,6 +110,15 @@ final class my_marathon_trackerrTests: XCTestCase {
         )
     }
 
+    func testPrivateWebsiteLinkKeepsRaceAndPasscodeTogether() throws {
+        let link = RunAlongLinks.race("private-race-id", passcode: "ABCD2345")
+        let components = try XCTUnwrap(URLComponents(string: link))
+
+        XCTAssertEqual(components.queryItems?.first?.name, "race")
+        XCTAssertEqual(components.queryItems?.first?.value, "private-race-id")
+        XCTAssertEqual(components.fragment, "code=ABCD2345")
+    }
+
     func testFinishEstimateSupportsAnyDistance() {
         let start = Date(timeIntervalSince1970: 0)
         let finish = RaceMath.estimatedFinish(

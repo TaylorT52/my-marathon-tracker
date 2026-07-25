@@ -252,9 +252,6 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
         startNetworkMonitoring()
         updateAuthorizationLabel(locationManager.authorizationStatus)
         startLiveListeners()
-        if !connectedRace.isOwner {
-            PushNotificationManager.shared.subscribe(to: connectedRace.id)
-        }
     }
 
     deinit {

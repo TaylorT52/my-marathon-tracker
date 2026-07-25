@@ -15,7 +15,6 @@ supports common race presets and any custom target distance.
 - Location permission and background-location configuration
 - Offline, Firestore-cache, delayed-GPS, and stale-location warnings
 - A no-install website for public and passcode-protected race viewing
-- FCM registration and trusted start/message/finish notification triggers
 - Unit tests for pace, finish projections, and sync health
 
 The initial screen intentionally contains demo data. Open race settings, turn on
@@ -34,7 +33,6 @@ Realtime backend (Supabase or Firebase)
        |
        +----> spectator web link (no install)
        +----> spectator iOS app
-       +----> push notifications for runner updates
 ```
 
 The iOS app publishes the latest race state to Firestore. Joined spectators can
@@ -98,28 +96,12 @@ only the runner can publish; stale/out-of-order GPS points are rejected; a
 spectator reconnect receives the latest state; and a completed or expired race
 no longer accepts locations.
 
-## Push notification activation
-
-The app registers spectator FCM tokens, and `functions/index.js` contains
-Firestore triggers for race start, runner message, and race finish. Production
-Cloud Functions deployment requires Firebase's Blaze plan, so the functions are
-kept undeployed while this project remains on Spark.
-
-To turn automatic push delivery on:
-
-1. Upload an APNs authentication key under Firebase Console → Project settings
-   → Cloud Messaging.
-2. Upgrade the Firebase project to Blaze and set a conservative budget alert.
-3. Run `npx firebase-tools deploy --only functions`.
-4. Test on physical iPhones; APNs behavior in Simulator is not a production test.
-
 ## Before relying on it during a race
 
 - Test background tracking on a physical iPhone for at least 90 minutes.
 - Test with Low Power Mode and intermittent cellular coverage.
 - Use a battery pack and keep Strava plus RunAlong running during the test.
-- If sending SMS, collect explicit opt-in and use a server-side provider such as
-  Twilio. In-app updates and push notifications are simpler for the first release.
+- Race updates appear live while spectators have the app or website open.
 
 ## Opening the project
 

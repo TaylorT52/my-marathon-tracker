@@ -19,8 +19,6 @@
 		FC94B6123012C0F100FCD3D9 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FC94B6113012C0F100FCD3D9 /* GoogleService-Info.plist */; };
 		FC07CCE83012C00000148555 /* FirebaseRaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC07CCEA3012C00000148555 /* FirebaseRaceStore.swift */; };
 		FC07CCE93012C00000148555 /* RacePortalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC07CCEB3012C00000148555 /* RacePortalView.swift */; };
-		FC1000013014000000000001 /* PushNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1000023014000000000001 /* PushNotificationManager.swift */; };
-		FC1000033014000000000001 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = FC1000043014000000000001 /* FirebaseMessaging */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -54,8 +52,6 @@
 		FC94B6113012C0F100FCD3D9 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		FC07CCEA3012C00000148555 /* FirebaseRaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirebaseRaceStore.swift; sourceTree = "<group>"; };
 		FC07CCEB3012C00000148555 /* RacePortalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RacePortalView.swift; sourceTree = "<group>"; };
-		FC1000023014000000000001 /* PushNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationManager.swift; sourceTree = "<group>"; };
-		FC1000053014000000000001 /* my-marathon-trackerr.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "my-marathon-trackerr.entitlements"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -65,7 +61,6 @@
 			files = (
 				FC07CCE03012BE0000148555 /* FirebaseAuth in Frameworks */,
 				FC07CCE13012BE0000148555 /* FirebaseFirestore in Frameworks */,
-				FC1000033014000000000001 /* FirebaseMessaging in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -114,8 +109,6 @@
 				FC07CCB53012B4D400148555 /* ContentView.swift */,
 				FC07CCEA3012C00000148555 /* FirebaseRaceStore.swift */,
 				FC07CCEB3012C00000148555 /* RacePortalView.swift */,
-				FC1000023014000000000001 /* PushNotificationManager.swift */,
-				FC1000053014000000000001 /* my-marathon-trackerr.entitlements */,
 				FC07CCB73012B4D600148555 /* Assets.xcassets */,
 				FC07CCB93012B4D600148555 /* Preview Content */,
 			);
@@ -166,7 +159,6 @@
 			packageProductDependencies = (
 				FC07CCE43012BE0000148555 /* FirebaseAuth */,
 				FC07CCE53012BE0000148555 /* FirebaseFirestore */,
-				FC1000043014000000000001 /* FirebaseMessaging */,
 			);
 			productName = "my-marathon-trackerr";
 			productReference = FC07CCB03012B4D400148555 /* my-marathon-trackerr.app */;
@@ -220,11 +212,6 @@
 				TargetAttributes = {
 					FC07CCAF3012B4D400148555 = {
 						CreatedOnToolsVersion = 15.4;
-						SystemCapabilities = {
-							com.apple.Push = {
-								enabled = 1;
-							};
-						};
 					};
 					FC07CCBF3012B4D600148555 = {
 						CreatedOnToolsVersion = 15.4;
@@ -294,7 +281,6 @@
 				FC07CCB63012B4D400148555 /* ContentView.swift in Sources */,
 				FC07CCE83012C00000148555 /* FirebaseRaceStore.swift in Sources */,
 				FC07CCE93012C00000148555 /* RacePortalView.swift in Sources */,
-				FC1000013014000000000001 /* PushNotificationManager.swift in Sources */,
 				FC07CCB43012B4D400148555 /* my_marathon_trackerrApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -456,7 +442,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "my-marathon-trackerr/my-marathon-trackerr.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"my-marathon-trackerr/Preview Content\"";
@@ -482,7 +467,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "my-marathon-trackerr/my-marathon-trackerr.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"my-marathon-trackerr/Preview Content\"";
@@ -637,11 +621,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FC07CCDF3012BDB600148555 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFirestore;
-		};
-		FC1000043014000000000001 /* FirebaseMessaging */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FC07CCDF3012BDB600148555 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseMessaging;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

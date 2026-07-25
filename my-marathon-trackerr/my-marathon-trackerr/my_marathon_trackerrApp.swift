@@ -6,7 +6,6 @@
 //
 
 import FirebaseCore
-import FirebaseMessaging
 import SwiftUI
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
@@ -15,15 +14,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         FirebaseApp.configure()
-        PushNotificationManager.shared.configure()
         return true
-    }
-
-    func application(
-        _ application: UIApplication,
-        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
-    ) {
-        Messaging.messaging().apnsToken = deviceToken
     }
 }
 

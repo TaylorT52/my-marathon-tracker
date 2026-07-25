@@ -588,7 +588,7 @@ private struct ConnectedRaceView: View {
                         .background(.white, in: RoundedRectangle(cornerRadius: 22))
 
                         ShareLink(
-                            item: "Follow \(race.runnerName)’s race live: \(RunAlongLinks.race(race.id))\nPasscode: \(passcode)"
+                            item: "Follow \(race.runnerName)’s race live: \(RunAlongLinks.race(race.id, passcode: passcode))\nPasscode: \(passcode)"
                         ) {
                             Label("Share invitation", systemImage: "square.and.arrow.up")
                         }

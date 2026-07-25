@@ -7,11 +7,14 @@ import Security
 enum RunAlongLinks {
     static let spectatorSite = "https://runalong-live.fehguy.chatgpt.site"
 
-    static func race(_ raceId: String) -> String {
+    static func race(_ raceId: String, passcode: String? = nil) -> String {
         guard var components = URLComponents(string: spectatorSite) else {
             return spectatorSite
         }
         components.queryItems = [URLQueryItem(name: "race", value: raceId)]
+        if let passcode {
+            components.fragment = "code=\(passcode)"
+        }
         return components.url?.absoluteString ?? spectatorSite
     }
 }
@@ -206,7 +209,7 @@ final class FirebaseRaceStore: ObservableObject {
                 batch.setData([
                     "raceId": raceRef.documentID,
                     "ownerId": user.uid,
-                    "expiresAt": Timestamp(date: Date().addingTimeInterval(72 * 60 * 60)),
+                    "expiresAt": Timestamp(date: Date().addingTimeInterval(30 * 24 * 60 * 60)),
                     "createdAt": FieldValue.serverTimestamp()
                 ], forDocument: self.database.collection("raceInvites").document(inviteHash))
             }

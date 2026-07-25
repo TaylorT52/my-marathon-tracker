@@ -87,17 +87,10 @@ service cloud.firestore {
               && request.resource.data.inviteHash is string
               && request.resource.data.inviteHash.size() == 64
               && get(/databases/$(database)/documents/raceInvites/$(request.resource.data.inviteHash)).data.raceId == raceId
-              && get(/databases/$(database)/documents/raceInvites/$(request.resource.data.inviteHash)).data.expiresAt > request.time
+              && raceAfter(raceId).data.status != "ended"
             )
           );
-        allow update: if signedIn()
-          && userId == request.auth.uid
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(["pushToken", "notificationsEnabled"])
-          && request.resource.data.pushToken is string
-          && request.resource.data.pushToken.size() > 0
-          && request.resource.data.pushToken.size() <= 4096
-          && request.resource.data.notificationsEnabled is bool;
+        allow update: if false;
         allow delete: if false;
       }
 
@@ -207,7 +200,7 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time
         && request.resource.data.expiresAt is timestamp
         && request.resource.data.expiresAt > request.time
-        && request.resource.data.expiresAt <= request.time + duration.value(72, "h");
+        && request.resource.data.expiresAt <= request.time + duration.value(720, "h");
       allow update: if false;
       allow delete: if signedIn()
         && resource.data.ownerId == request.auth.uid;

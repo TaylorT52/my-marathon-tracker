@@ -106,7 +106,10 @@ export default function RaceTracker({raceId}: {raceId: string}) {
   const [race, setRace] = useState<Race | null>(null);
   const [state, setState] = useState<RaceState | null>(null);
   const [updates, setUpdates] = useState<Update[]>([]);
-  const [passcode, setPasscode] = useState("");
+  const [passcode, setPasscode] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return new URLSearchParams(window.location.hash.slice(1)).get("code") ?? "";
+  });
   const [needsPasscode, setNeedsPasscode] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -226,7 +229,11 @@ export default function RaceTracker({raceId}: {raceId: string}) {
       setNeedsPasscode(false);
       attachListeners();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not unlock this race.");
+      if (caught instanceof FirebaseError && caught.code === "permission-denied") {
+        setError("This race has finished, or this private invitation is no longer available.");
+      } else {
+        setError(caught instanceof Error ? caught.message : "Could not unlock this race.");
+      }
     } finally {
       setLoading(false);
     }
