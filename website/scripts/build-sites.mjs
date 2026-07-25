@@ -17,9 +17,12 @@ if (script) {
     resolve(client, script[1].replace(/^\//, "")),
     "utf8",
   );
+  // Use a replacer function so `$&`, `$`` and similar sequences in the
+  // minified bundle are inserted literally instead of being interpreted by
+  // String.replace as replacement patterns.
   html = html.replace(
     script[0],
-    `<script type="module">${javascript.replaceAll("</script", "<\\/script")}</script>`,
+    () => `<script type="module">${javascript.replaceAll("</script", "<\\/script")}</script>`,
   );
 }
 

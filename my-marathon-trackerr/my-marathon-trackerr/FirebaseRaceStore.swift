@@ -189,6 +189,10 @@ final class FirebaseRaceStore: ObservableObject {
             guard let user = self.auth.currentUser, !user.isAnonymous else {
                 throw RaceStoreError.creatorAccountRequired
             }
+            guard let lastSignInDate = user.metadata.lastSignInDate,
+                  Date().timeIntervalSince(lastSignInDate) < 240 else {
+                throw RaceStoreError.recentSignInRequired
+            }
 
             let ownedRaces = try await self.database
                 .collection("races")
@@ -716,6 +720,7 @@ private enum RaceStoreError: LocalizedError {
     case passcodeNotFound
     case passcodeExpired
     case raceUnavailable
+    case recentSignInRequired
     case randomGenerationFailed
 
     var errorDescription: String? {
@@ -734,6 +739,8 @@ private enum RaceStoreError: LocalizedError {
             "That passcode has expired."
         case .raceUnavailable:
             "That race is no longer available."
+        case .recentSignInRequired:
+            "For security, sign out and sign back in before deleting your account."
         case .randomGenerationFailed:
             "Couldn’t create a secure passcode. Please try again."
         }

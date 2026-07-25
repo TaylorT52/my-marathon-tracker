@@ -229,6 +229,16 @@ final class RaceViewModel: NSObject, ObservableObject, CLLocationManagerDelegate
         updateAuthorizationLabel(locationManager.authorizationStatus)
     }
 
+    func configureForScreenshotSpectator() {
+        connectedRaceId = "app-store-spectator"
+        isConnectedRace = true
+        isOwner = false
+        isRunnerMode = false
+        hasLiveLocation = true
+        rollingPaceSeconds = 554
+        locationStatus = "Watching live"
+    }
+
     init(connectedRace: ConnectedRace) {
         super.init()
         connectedRaceId = connectedRace.id
@@ -814,6 +824,28 @@ struct ContentView: View {
         onExit = nil
     }
 
+    init(screenshotMode: String) {
+        let model = RaceViewModel()
+        model.isRunnerMode = screenshotMode != "live"
+        model.raceName = "Golden Gate Half"
+        model.runnerName = "Taylor"
+        model.distancePreset = .halfMarathon
+        model.distanceMiles = 8.7
+        model.elapsedSeconds = 4_821
+        model.lastUpdated = Date().addingTimeInterval(-3)
+        model.runnerCoordinate = CLLocationCoordinate2D(
+            latitude: 37.7787,
+            longitude: -122.4521
+        )
+        if screenshotMode == "watch" {
+            model.configureForScreenshotSpectator()
+        }
+        _race = StateObject(wrappedValue: model)
+        _showComposer = State(initialValue: screenshotMode == "update")
+        _showSettings = State(initialValue: screenshotMode == "setup")
+        onExit = nil
+    }
+
     init(connectedRace: ConnectedRace, onExit: @escaping () -> Void) {
         _race = StateObject(wrappedValue: RaceSessionRegistry.shared.model(for: connectedRace))
         self.onExit = onExit
@@ -960,10 +992,10 @@ struct ContentView: View {
                     Circle()
                         .fill(syncColor(for: health))
                         .frame(width: 8, height: 8)
-                    Text(race.isConnectedRace ? syncTitle(for: health) : "DEMO LIVE")
+                    Text(race.isConnectedRace ? syncTitle(for: health) : "LIVE GPS")
                         .font(.caption2.weight(.black))
                         .tracking(0.8)
-                    if race.hasLiveLocation || !race.isConnectedRace {
+                    if race.isConnectedRace && race.hasLiveLocation {
                         Text("· \(race.lastUpdateAgeText(at: context.date))")
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(AppTheme.muted)

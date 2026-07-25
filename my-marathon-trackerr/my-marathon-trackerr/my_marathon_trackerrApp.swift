@@ -24,8 +24,13 @@ struct my_marathon_trackerrApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RacePortalView()
-                .preferredColorScheme(.light)
+            if let screenshotMode = ProcessInfo.processInfo.environment["RUNALONG_SCREENSHOT_MODE"] {
+                ContentView(screenshotMode: screenshotMode)
+                    .preferredColorScheme(.light)
+            } else {
+                RacePortalView()
+                    .preferredColorScheme(.light)
+            }
         }
     }
 }

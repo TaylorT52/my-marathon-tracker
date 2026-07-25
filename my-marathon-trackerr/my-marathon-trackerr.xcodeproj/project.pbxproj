@@ -16,9 +16,9 @@
 		FC07CCD13012B4D600148555 /* my_marathon_trackerrUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC07CCD03012B4D600148555 /* my_marathon_trackerrUITestsLaunchTests.swift */; };
 		FC07CCE03012BE0000148555 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = FC07CCE43012BE0000148555 /* FirebaseAuth */; };
 		FC07CCE13012BE0000148555 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = FC07CCE53012BE0000148555 /* FirebaseFirestore */; };
-		FC94B6123012C0F100FCD3D9 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FC94B6113012C0F100FCD3D9 /* GoogleService-Info.plist */; };
 		FC07CCE83012C00000148555 /* FirebaseRaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC07CCEA3012C00000148555 /* FirebaseRaceStore.swift */; };
 		FC07CCE93012C00000148555 /* RacePortalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC07CCEB3012C00000148555 /* RacePortalView.swift */; };
+		FC94B6123012C0F100FCD3D9 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FC94B6113012C0F100FCD3D9 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -49,9 +49,9 @@
 		FC07CCCA3012B4D600148555 /* my-marathon-trackerrUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "my-marathon-trackerrUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC07CCCE3012B4D600148555 /* my_marathon_trackerrUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = my_marathon_trackerrUITests.swift; sourceTree = "<group>"; };
 		FC07CCD03012B4D600148555 /* my_marathon_trackerrUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = my_marathon_trackerrUITestsLaunchTests.swift; sourceTree = "<group>"; };
-		FC94B6113012C0F100FCD3D9 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		FC07CCEA3012C00000148555 /* FirebaseRaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirebaseRaceStore.swift; sourceTree = "<group>"; };
 		FC07CCEB3012C00000148555 /* RacePortalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RacePortalView.swift; sourceTree = "<group>"; };
+		FC94B6113012C0F100FCD3D9 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -449,6 +449,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "my-marathon-trackerr/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "RunAlong: Live Race Tracker";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -456,9 +458,11 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.taylortam.my-marathon-trackerr";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -474,6 +478,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "my-marathon-trackerr/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "RunAlong: Live Race Tracker";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -481,9 +487,11 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.taylortam.my-marathon-trackerr";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
